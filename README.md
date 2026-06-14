@@ -15,9 +15,9 @@ favors clarity over cleverness.
 ## The strategy
 
 You receive a fixed-dollar grant of **employer stock** each year (it vests in March).
-Twice a quarter — just after a trading blackout opens and just before the next one
-closes — you check what fraction of your *total* stock holdings is in employer stock. If
-it exceeds a **threshold** (the author used **1/3**), you sell the excess employer stock
+Twice a quarter — shortly after the trading window opens and just before the next
+blackout period — you check what fraction of your *total* stock holdings is in employer
+stock. If it exceeds a **threshold** (e.g., **1/3**), you sell the excess employer stock
 down to that threshold and buy a diversified **index** with the proceeds.
 
 It's a *one-way* rebalance: you only ever sell employer stock, never buy it. The effect
@@ -98,8 +98,8 @@ a fair head-to-head number because every strategy receives the identical grant s
 
 - `employer_ticker`, `index_ticker` — symbols (index defaults to `VTI`).
 - `threshold` — target max employer fraction (e.g. `1/3`).
-- `days_after_quarter_start`, `days_before_quarter_end` — the two rebalance trade days
-  per quarter, as Nth-trading-day offsets (defaults `5` and `5`).
+- `rebalances_per_quarter` — how many evenly spaced rebalances to place in each quarter
+  (default `2`).
 - `capital_gains_rate` — tax on realized gains; `0.0` disables taxes. Cost basis is the
   vest-day price, so trimming soon after a grant realizes little gain.
 

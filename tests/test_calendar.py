@@ -41,49 +41,51 @@ def test_grant_dates_snap_and_carry_dollars():
     }
 
 
-def test_rebalance_first_and_last_trading_day_of_quarter():
-    days = rebalance_trade_dates(
-        TRADING_DAYS, days_after_quarter_start=1, days_before_quarter_end=1
-    )
+# The window spans the full TRADING_DAYS range, so no marks are clipped.
+SIM_START = pd.Timestamp("2020-01-01")
+SIM_END = pd.Timestamp("2021-12-31")
 
-    # Q1 2020 opens 2020-01-01 and closes 2020-03-31; both are business days here.
-    assert pd.Timestamp("2020-01-01") in days
-    assert pd.Timestamp("2020-03-31") in days
-    # Two days per quarter, 8 quarters across 2020-2021.
+
+def test_one_rebalance_lands_midquarter():
+    days = rebalance_trade_dates(TRADING_DAYS, 1, SIM_START, SIM_END)
+    q1 = [d for d in days if d.year == 2020 and d.quarter == 1]
+
+    # Mid-Q1 2020 is ~Feb 15 (a Saturday); snaps forward to Mon Feb 17.
+    assert q1 == [pd.Timestamp("2020-02-17")]
+    assert len(days) == 8  # one per quarter, 8 quarters across 2020-2021
+
+
+def test_two_rebalances_land_at_quarter_and_three_quarter_marks():
+    days = rebalance_trade_dates(TRADING_DAYS, 2, SIM_START, SIM_END)
+    q1 = [d for d in days if d.year == 2020 and d.quarter == 1]
+
+    # The quarter (~Jan 22) and three-quarter (~Mar 9) marks of Q1 2020.
+    assert q1 == [pd.Timestamp("2020-01-23"), pd.Timestamp("2020-03-09")]
     assert len(days) == 16
     assert days == sorted(days)
 
 
-def test_rebalance_offsets_count_into_the_quarter():
-    days = rebalance_trade_dates(
-        TRADING_DAYS, days_after_quarter_start=5, days_before_quarter_end=3
-    )
-    q1_days = [d for d in days if d.year == 2020 and d.quarter == 1]
+def test_many_rebalances_devolve_to_every_trading_day():
+    # A count far larger than the quarter's trading days resolves to each of them.
+    days = rebalance_trade_dates(TRADING_DAYS, 500, SIM_START, SIM_END)
+    q1_marks = [d for d in days if d.year == 2020 and d.quarter == 1]
+    q1_trading = [d for d in TRADING_DAYS if d.year == 2020 and d.quarter == 1]
 
-    # 5th business day of 2020 is Jan 7; 3rd-from-last of Q1 is Mar 27.
-    assert q1_days[0] == pd.Timestamp("2020-01-07")
-    assert q1_days[1] == pd.Timestamp("2020-03-27")
+    assert q1_marks == q1_trading
 
 
-def test_rebalance_single_day_quarter_collapses_to_one():
-    # A quarter with a single trading day: both offsets clamp to that day and collapse.
-    tiny = pd.DatetimeIndex([pd.Timestamp("2020-01-01")])
+def test_marks_outside_window_are_clipped():
+    # Window opens mid-Q1, so Q1's quarter mark (~Jan 22) precedes it and is dropped;
+    # only the three-quarter mark survives. Q2 is fully covered, so both marks land.
+    stub = pd.bdate_range("2020-02-18", "2020-06-30")
+    start, end = pd.Timestamp("2020-02-18"), pd.Timestamp("2020-06-30")
 
-    days = rebalance_trade_dates(tiny, days_after_quarter_start=10, days_before_quarter_end=10)
+    days = rebalance_trade_dates(stub, 2, start, end)
+    q1 = [d for d in days if d.year == 2020 and d.quarter == 1]
+    q2 = [d for d in days if d.year == 2020 and d.quarter == 2]
 
-    assert days == [pd.Timestamp("2020-01-01")]
-
-
-def test_rebalance_crossed_offsets_still_yield_a_sorted_pair():
-    # Offsets large enough to cross within a quarter: "early" lands after "late". The
-    # result is still two valid, deduplicated, sorted days for the quarter.
-    days = rebalance_trade_dates(
-        TRADING_DAYS, days_after_quarter_start=50, days_before_quarter_end=50
-    )
-    q1_days = [d for d in days if d.year == 2020 and d.quarter == 1]
-
-    assert len(q1_days) == 2
-    assert q1_days == sorted(q1_days)
+    assert q1 == [pd.Timestamp("2020-03-09")]
+    assert q2 == [pd.Timestamp("2020-04-23"), pd.Timestamp("2020-06-08")]
 
 
 def test_grant_dates_on_same_trading_day_accumulate():
@@ -102,4 +104,4 @@ def test_empty_trading_days_yield_no_dates():
     schedule = GrantSchedule(annual_dollars=50_000, start_year=2020, end_year=2021)
 
     assert grant_trade_dates(empty, schedule) == {}
-    assert rebalance_trade_dates(empty, days_after_quarter_start=5, days_before_quarter_end=5) == []
+    assert rebalance_trade_dates(empty, 2, SIM_START, SIM_END) == []

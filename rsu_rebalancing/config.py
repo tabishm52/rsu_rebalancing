@@ -49,10 +49,8 @@ class StrategyConfig:
         index_ticker: Symbol of the diversified fund that sale proceeds buy.
         threshold: Target maximum fraction of total holdings in employer stock
             (e.g. ``1/3``). Rebalances trim employer stock down to this fraction.
-        days_after_quarter_start: First trade day of each quarter, counted as the
-            Nth trading day after the quarter begins (1 = first trading day).
-        days_before_quarter_end: Second trade day of each quarter, counted as the
-            Nth trading day before the quarter ends (1 = last trading day).
+        rebalances_per_quarter: Number of evenly spaced rebalances to place in each
+            quarter.
         capital_gains_rate: Tax rate applied to realized gains when selling employer
             stock. ``0.0`` disables taxes (cost basis = vest-day price).
     """
@@ -60,8 +58,7 @@ class StrategyConfig:
     employer_ticker: str
     index_ticker: str = "VTI"
     threshold: float = 1.0 / 3.0
-    days_after_quarter_start: int = 5
-    days_before_quarter_end: int = 5
+    rebalances_per_quarter: int = 2
     capital_gains_rate: float = 0.0
 
     def __post_init__(self) -> None:
@@ -70,8 +67,10 @@ class StrategyConfig:
             raise ValueError(f"threshold must be in (0, 1]; got {self.threshold}")
         if not 0.0 <= self.capital_gains_rate < 1.0:
             raise ValueError(f"capital_gains_rate must be in [0, 1); got {self.capital_gains_rate}")
-        if self.days_after_quarter_start < 1 or self.days_before_quarter_end < 1:
-            raise ValueError("trade-day offsets must be >= 1")
+        if self.rebalances_per_quarter < 1:
+            raise ValueError(
+                f"rebalances_per_quarter must be >= 1; got {self.rebalances_per_quarter}"
+            )
 
 
 @dataclass(frozen=True)

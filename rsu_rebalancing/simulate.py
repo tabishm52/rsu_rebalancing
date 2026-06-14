@@ -119,7 +119,7 @@ def run_backtest(
 
     grants = grant_trade_dates(trading_days, schedule)
     rebalance_days = rebalance_trade_dates(
-        trading_days, strategy.days_after_quarter_start, strategy.days_before_quarter_end
+        trading_days, strategy.rebalances_per_quarter, sim.start, sim.end
     )
 
     rules: list[RebalanceRule] = [

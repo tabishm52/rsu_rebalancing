@@ -78,11 +78,8 @@ def _(mo):
     threshold = mo.ui.slider(
         start=5, stop=100, value=33, step=1, label="Threshold %", show_value=True
     )
-    days_after = mo.ui.slider(
-        start=1, stop=20, value=5, step=1, label="Trade: Nth day after Q start", show_value=True
-    )
-    days_before = mo.ui.slider(
-        start=1, stop=20, value=5, step=1, label="Trade: Nth day before Q end", show_value=True
+    rebalances = mo.ui.slider(
+        start=1, stop=3, value=2, step=1, label="Rebalances per quarter", show_value=True
     )
     tax_rate = mo.ui.slider(
         start=0, stop=50, value=0, step=1, label="Capital-gains tax %", show_value=True
@@ -97,18 +94,17 @@ def _(mo):
             mo.hstack([start, end], justify="start"),
             annual_dollars,
             threshold,
-            mo.hstack([days_after, days_before], justify="start"),
+            mo.hstack([rebalances], justify="start"),
             mo.hstack([tax_rate, risk_free], justify="start"),
         ]
     )
     controls
     return (
         annual_dollars,
-        days_after,
-        days_before,
         employer,
         end,
         index,
+        rebalances,
         risk_free,
         start,
         tax_rate,
@@ -130,13 +126,12 @@ def _(
     SimConfig,
     StrategyConfig,
     annual_dollars,
-    days_after,
-    days_before,
     employer,
     end,
     index,
     mo,
     pd,
+    rebalances,
     risk_free,
     run_backtest,
     start,
@@ -150,8 +145,7 @@ def _(
         employer_ticker=employer.value,
         index_ticker=index.value,
         threshold=threshold.value / 100.0,
-        days_after_quarter_start=days_after.value,
-        days_before_quarter_end=days_before.value,
+        rebalances_per_quarter=rebalances.value,
         capital_gains_rate=tax_rate.value / 100.0,
     )
     schedule = GrantSchedule(

@@ -1,9 +1,9 @@
 """Map nominal dates onto actual trading days.
 
-Grants and rebalances are described in calendar terms ("first trading day of March",
-"5th trading day of the quarter"), but trades can only happen on days the market is
-open. These pure functions translate those rules against a known set of trading days,
-so they are fully testable without any network access.
+Grants and rebalances are described in calendar terms ("first day of March", "twice per
+quarter"), but trades can only happen on days the market is open. These pure functions
+translate those rules against a known set of trading days, so they are fully testable
+without any network access.
 """
 
 import pandas as pd
@@ -58,40 +58,43 @@ def grant_trade_dates(
 
 def rebalance_trade_dates(
     trading_days: pd.DatetimeIndex,
-    days_after_quarter_start: int,
-    days_before_quarter_end: int,
+    rebalances_per_quarter: int,
+    sim_start: pd.Timestamp,
+    sim_end: pd.Timestamp,
 ) -> list[pd.Timestamp]:
-    """Compute the two rebalance trade days for each calendar quarter.
+    """Place evenly spaced rebalance trade days within each calendar quarter.
 
-    The two days approximate trading just after a blackout opens and just before the
-    next one closes: the Nth trading day from the start of the quarter and the Nth
-    trading day from its end. Both offsets are clamped to the days the quarter actually
-    has, so on a short quarter they may meet or cross, collapsing to a single day.
+    The trades sit at the centers of ``rebalances_per_quarter`` equal slices of the
+    quarter's true calendar span: one trade lands mid-quarter, two at the quarter and
+    three-quarter marks, three at the sixth marks, and so on. Any dates that land outside
+    ``[sim_start, sim_end]`` are dropped.
 
-    Quarters are derived from ``trading_days`` as given, so a partial quarter at either
-    end of the simulation window counts its offsets from the first/last available day,
-    not the true calendar boundary.
+    This spacing is deliberate: one or two rebalances a quarter sit near the middle and
+    so roughly respect insider-trading blackout windows, which open near the start and
+    end of a quarter. More than two no longer does — the outer trades drift toward the
+    edges. A large count approaches a rebalance every trading day.
 
     Args:
         trading_days: Sorted index of available trading days.
-        days_after_quarter_start: 1-based offset from the quarter's first trading day.
-        days_before_quarter_end: 1-based offset from the quarter's last trading day.
+        rebalances_per_quarter: Number of rebalances to place in each quarter (>= 1).
+        sim_start: First date of the simulation window (inclusive).
+        sim_end: Last date of the simulation window (inclusive).
 
     Returns:
-        A sorted list of rebalance trade days: up to two per quarter, deduplicated.
+        A sorted list of rebalance trade days, deduplicated.
     """
-    quarters = trading_days.to_period("Q")
-    by_quarter = pd.Series(trading_days, index=quarters).groupby(level=0)
-
     dates: set[pd.Timestamp] = set()
-    for _, group in by_quarter:
-        days = group.to_numpy()
-        n = len(days)
+    for quarter in trading_days.to_period("Q").unique():
+        span = quarter.end_time - quarter.start_time
 
-        early = min(days_after_quarter_start - 1, n - 1)
-        late = max(n - days_before_quarter_end, 0)
+        for i in range(1, rebalances_per_quarter + 1):
+            fraction = (2 * i - 1) / (2 * rebalances_per_quarter)
+            target = (quarter.start_time + fraction * span).normalize()
+            if not sim_start <= target <= sim_end:
+                continue
 
-        dates.add(pd.Timestamp(days[early]))
-        dates.add(pd.Timestamp(days[late]))
+            day = first_trading_day_on_or_after(trading_days, target)
+            if day is not None:
+                dates.add(day)
 
     return sorted(dates)
