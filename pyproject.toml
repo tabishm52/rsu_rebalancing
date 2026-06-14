@@ -13,7 +13,8 @@ dependencies = [
     "yfinance",
     "marimo",
     "python-dotenv",
-    "altair",
+    "matplotlib",
+    "seaborn",
     "pyarrow",
 ]
 

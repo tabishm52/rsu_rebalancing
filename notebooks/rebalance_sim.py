@@ -9,15 +9,16 @@ baselines on both return and risk.
 
 import marimo
 
-__generated_with = "0.9.0"
+__generated_with = "0.23.9"
 app = marimo.App(width="medium")
 
 
 @app.cell
 def _():
-    import altair as alt
     import marimo as mo
+    import matplotlib.pyplot as plt
     import pandas as pd
+    import seaborn as sns
 
     from rsu_rebalancing import (
         GrantSchedule,
@@ -29,15 +30,16 @@ def _():
         time_weighted_returns,
     )
 
+    sns.set_theme()
     return (
         GrantSchedule,
         SimConfig,
         StrategyConfig,
-        alt,
         comparison_table,
         growth_of_one,
         mo,
         pd,
+        plt,
         run_backtest,
         time_weighted_returns,
     )
@@ -45,22 +47,27 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # RSU threshold rebalancing — backtest
+    mo.md("""
+    # RSU threshold rebalancing — backtest
 
-        Each year a fixed-dollar grant of **employer stock** vests. Twice a quarter the
-        strategy trims employer stock back down to a **threshold** fraction of total
-        holdings, reinvesting the proceeds in a diversified **index**. Compare it against
-        *holding everything* and *selling everything at vest*.
-        """
-    )
+    Each year a fixed-dollar grant of **employer stock** vests. Twice a quarter the
+    strategy trims employer stock back down to a **threshold** fraction of total
+    holdings, reinvesting the proceeds in a diversified **index**. Compare it against
+    *holding everything* and *selling everything at vest*.
+    """)
     return
 
 
 @app.cell
 def _(mo):
-    # --- Controls ---------------------------------------------------------------
+    mo.md("""
+    ## Controls
+    """)
+    return
+
+
+@app.cell
+def _(mo):
     employer = mo.ui.text(value="AAPL", label="Employer ticker")
     index = mo.ui.text(value="VTI", label="Index ticker")
     start = mo.ui.text(value="2015-01-01", label="Start date")
@@ -97,7 +104,6 @@ def _(mo):
     controls
     return (
         annual_dollars,
-        controls,
         days_after,
         days_before,
         employer,
@@ -108,6 +114,14 @@ def _(mo):
         tax_rate,
         threshold,
     )
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ## Run the backtest
+    """)
+    return
 
 
 @app.cell
@@ -129,7 +143,6 @@ def _(
     tax_rate,
     threshold,
 ):
-    # --- Run the backtest -------------------------------------------------------
     start_ts = pd.Timestamp(start.value)
     end_ts = pd.Timestamp(end.value)
 
@@ -158,74 +171,58 @@ def _(
     mo.stop(error is not None, mo.md(f"⚠️ **Could not run:** {error}"))
     threshold_name = next(name for name in results if name.startswith("Threshold"))
     results
-    return (
-        end_ts,
-        error,
-        results,
-        schedule,
-        sim_cfg,
-        start_ts,
-        strategy_cfg,
-        threshold_name,
-    )
+    return results, sim_cfg, strategy_cfg, threshold_name
 
 
 @app.cell
-def _(alt, mo, results, strategy_cfg, threshold_name):
-    # --- Chart 1: employer concentration over time vs the threshold line --------
-    frac = results[threshold_name].employer_fraction
-    frac_df = frac.reset_index()
-    frac_df.columns = ["Date", "employer_fraction"]
+def _(mo):
+    mo.md("""
+    ## Results
+    """)
+    return
 
-    line = (
-        alt.Chart(frac_df)
-        .mark_line(color="#d62728")
-        .encode(x="Date:T", y=alt.Y("employer_fraction:Q", title="Employer fraction of holdings"))
-    )
-    rule = (
-        alt.Chart(alt.Data(values=[{"y": strategy_cfg.threshold}]))
-        .mark_rule(strokeDash=[4, 4], color="gray")
-        .encode(y="y:Q")
-    )
+
+@app.cell
+def _(mo, plt, results, strategy_cfg, threshold_name):
+    frac = results[threshold_name].employer_fraction
+
+    frac_fig, frac_ax = plt.subplots(figsize=(12, 5))
+    frac_ax.plot(frac.index, frac.values, color="#d62728")
+    frac_ax.axhline(strategy_cfg.threshold, linestyle="--", color="gray")
+    frac_ax.set_xlabel("Date")
+    frac_ax.set_ylabel("Employer fraction of holdings")
+    frac_fig.tight_layout()
+
     mo.vstack(
         [
             mo.md("### Employer concentration (threshold strategy)"),
-            (line + rule).properties(height=260),
+            frac_fig,
         ]
     )
-    return frac, frac_df, line, rule
+    return
 
 
 @app.cell
-def _(alt, growth_of_one, mo, pd, results, time_weighted_returns):
-    # --- Chart 2: growth of $1 (time-weighted) for all strategies ----------------
+def _(growth_of_one, mo, pd, plt, results, time_weighted_returns):
     curves = {
         name: growth_of_one(time_weighted_returns(res.values, res.contributions))
         for name, res in results.items()
     }
     growth_df = pd.DataFrame(curves)
-    growth_long = growth_df.reset_index().melt(
-        id_vars=growth_df.index.name or "index", var_name="strategy", value_name="growth"
-    )
-    growth_long.columns = ["Date", "strategy", "growth"]
 
-    growth_chart = (
-        alt.Chart(growth_long)
-        .mark_line()
-        .encode(
-            x="Date:T",
-            y=alt.Y("growth:Q", title="Growth of $1 (time-weighted)"),
-            color="strategy:N",
-        )
-        .properties(height=300)
-    )
-    mo.vstack([mo.md("### Investment performance (contributions removed)"), growth_chart])
-    return curves, growth_chart, growth_df, growth_long
+    growth_fig, growth_ax = plt.subplots(figsize=(12, 5))
+    (growth_df * 100).plot(ax=growth_ax)
+    growth_ax.set_xlabel("Date")
+    growth_ax.set_ylabel("Index, start = 100 (time-weighted)")
+    growth_ax.legend(title="strategy")
+    growth_fig.tight_layout()
+
+    mo.vstack([mo.md("### Investment performance (contributions removed)"), growth_fig])
+    return
 
 
 @app.cell
 def _(comparison_table, mo, pd, results, sim_cfg):
-    # --- Metrics comparison table -----------------------------------------------
     table = comparison_table(results, risk_free_rate=sim_cfg.risk_free_rate)
 
     formatters = {
@@ -241,12 +238,11 @@ def _(comparison_table, mo, pd, results, sim_cfg):
     styled = pd.DataFrame({row: table.loc[row].map(fmt) for row, fmt in formatters.items()}).T
 
     mo.vstack([mo.md("### Return & risk comparison"), mo.ui.table(styled, selection=None)])
-    return formatters, styled, table
+    return
 
 
 @app.cell
 def _(mo, results, threshold_name):
-    # --- Trade log for the threshold strategy -----------------------------------
     trades = results[threshold_name].trades
     mo.vstack(
         [
@@ -254,7 +250,7 @@ def _(mo, results, threshold_name):
             mo.ui.table(trades, selection=None, pagination=True),
         ]
     )
-    return (trades,)
+    return
 
 
 if __name__ == "__main__":
