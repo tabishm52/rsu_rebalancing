@@ -13,7 +13,7 @@ from .calendar import grant_trade_dates, rebalance_trade_dates
 from .config import GrantSchedule, SimConfig, StrategyConfig
 from .data import get_price_frame
 from .portfolio import Portfolio
-from .strategy import HoldEverything, RebalanceRule, SellAllAtVest, ThresholdRebalance
+from .strategy import HoldEverything, RebalanceRule, SellAllAtVest, ThresholdRebalance, TradingDay
 
 
 @dataclass
@@ -74,16 +74,14 @@ def run_rule(
         idx_price = float(index.loc[date])
         grant_dollars = grants.get(date)
 
-        records.extend(
-            rule.step(
-                portfolio,
-                date,
-                emp_price,
-                idx_price,
-                grant_dollars,
-                date in rebalance_set,
-            )
+        day = TradingDay(
+            date=date,
+            employer_price=emp_price,
+            index_price=idx_price,
+            grant_dollars=grant_dollars,
+            is_rebalance_day=date in rebalance_set,
         )
+        records.extend(rule.step(portfolio, day))
 
         values[date] = portfolio.total_value(emp_price, idx_price)
         fractions[date] = portfolio.employer_fraction(emp_price, idx_price)
