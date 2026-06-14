@@ -12,7 +12,7 @@ __pycache__/
 .env
 
 # uv
-# (uv.lock IS committed; keep it)
+uv.lock
 
 # Optional local price cache (pointed to by RSU_REBALANCING_CACHE_DIR)
 cache/
