@@ -26,6 +26,7 @@ def first_trading_day_on_or_after(
     pos = int(trading_days.searchsorted(date, side="left"))
     if pos >= len(trading_days):
         return None
+
     return trading_days[pos]
 
 
@@ -43,10 +44,15 @@ def grant_trade_dates(
         nominal date falls after the last trading day are dropped.
     """
     grants: dict[pd.Timestamp, float] = {}
+
     for nominal in schedule.nominal_grant_dates():
         day = first_trading_day_on_or_after(trading_days, nominal)
-        if day is not None:
-            grants[day] = grants.get(day, 0.0) + schedule.annual_dollars
+        if day is None:
+            continue
+
+        # Two grants can snap to the same trading day; accumulate their dollars.
+        grants[day] = grants.get(day, 0.0) + schedule.annual_dollars
+
     return grants
 
 
@@ -59,8 +65,12 @@ def rebalance_trade_dates(
 
     The two days approximate trading just after a blackout opens and just before the
     next one closes: the Nth trading day from the start of the quarter and the Nth
-    trading day from its end. Offsets are clamped to the days actually available in a
-    quarter, and duplicate dates (when a quarter is short) are collapsed.
+    trading day from its end. Both offsets are clamped to the days the quarter actually
+    has, so on a short quarter they may meet or cross, collapsing to a single day.
+
+    Quarters are derived from ``trading_days`` as given, so a partial quarter at either
+    end of the simulation window counts its offsets from the first/last available day,
+    not the true calendar boundary.
 
     Args:
         trading_days: Sorted index of available trading days.
@@ -68,15 +78,20 @@ def rebalance_trade_dates(
         days_before_quarter_end: 1-based offset from the quarter's last trading day.
 
     Returns:
-        A sorted list of rebalance trade days.
+        A sorted list of rebalance trade days: up to two per quarter, deduplicated.
     """
-    dates: set[pd.Timestamp] = set()
     quarters = trading_days.to_period("Q")
-    for _, group in pd.Series(trading_days, index=quarters).groupby(level=0):
+    by_quarter = pd.Series(trading_days, index=quarters).groupby(level=0)
+
+    dates: set[pd.Timestamp] = set()
+    for _, group in by_quarter:
         days = group.to_numpy()
         n = len(days)
+
         early = min(days_after_quarter_start - 1, n - 1)
         late = max(n - days_before_quarter_end, 0)
+
         dates.add(pd.Timestamp(days[early]))
         dates.add(pd.Timestamp(days[late]))
+
     return sorted(dates)
