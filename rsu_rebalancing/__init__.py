@@ -8,8 +8,6 @@ Public API:
       :func:`growth_of_one`
 """
 
-from __future__ import annotations
-
 from .config import GrantSchedule, SimConfig, StrategyConfig
 from .data import get_price_frame, get_prices
 from .metrics import (

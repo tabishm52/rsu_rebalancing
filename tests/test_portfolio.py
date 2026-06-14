@@ -1,7 +1,5 @@
 """Tests for portfolio bookkeeping, threshold sells, FIFO tax, and liquidation."""
 
-from __future__ import annotations
-
 import pandas as pd
 from pytest import approx
 

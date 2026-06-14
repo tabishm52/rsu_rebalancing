@@ -3,7 +3,7 @@ name = "rsu-rebalancing"
 version = "0.1.0"
 description = "Backtest a one-way threshold rebalancing strategy for concentrated employer-stock (RSU) compensation."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 license = "MIT"
 authors = [{ name = "Tabish Mustufa", email = "tabishm@gmail.com" }]
 keywords = ["finance", "rsu", "rebalancing", "backtest", "pandas", "marimo"]
@@ -35,7 +35,7 @@ packages = ["rsu_rebalancing"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py314"
 
 [tool.ruff.lint]
 # pycodestyle, pyflakes, isort, pep8-naming, pyupgrade, flake8-bugbear, docstrings
@@ -57,7 +57,7 @@ convention = "google"
 [tool.mypy]
 # Lenient by design: type annotations aid readability/editor help, but type
 # checkers catch little inside pandas pipelines. This is a learning aid, not a gate.
-python_version = "3.11"
+python_version = "3.14"
 files = ["rsu_rebalancing"]
 ignore_missing_imports = true
 warn_unused_ignores = false

@@ -1,7 +1,5 @@
 """Tests for return/risk metrics, especially contribution stripping (TWR)."""
 
-from __future__ import annotations
-
 import numpy as np
 import pandas as pd
 from pytest import approx

@@ -1,7 +1,5 @@
 """Tests for calendar mapping of grants and rebalances onto trading days."""
 
-from __future__ import annotations
-
 import pandas as pd
 
 from rsu_rebalancing.calendar import (

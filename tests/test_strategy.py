@@ -1,7 +1,5 @@
 """Tests for the rules running through the simulation engine on synthetic prices."""
 
-from __future__ import annotations
-
 import pandas as pd
 from pytest import approx
 

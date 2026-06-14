@@ -7,8 +7,6 @@ fetched series as parquet between sessions. The disk cache is keyed by ticker an
 date range and is never auto-refreshed -- delete the file (or directory) to refetch.
 """
 
-from __future__ import annotations
-
 import os
 from functools import lru_cache
 from pathlib import Path

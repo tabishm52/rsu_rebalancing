@@ -5,8 +5,6 @@ stream, the strategy parameters, and the date window). They hold no price data a
 do no I/O, which keeps them trivial to construct in tests and notebooks.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 import pandas as pd

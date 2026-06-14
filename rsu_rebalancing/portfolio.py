@@ -6,8 +6,6 @@ sale flow here). It is a plain mutable object driven by the simulation engine; i
 holds no dates or prices of its own.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Literal
 

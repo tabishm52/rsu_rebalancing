@@ -5,8 +5,6 @@ that day is a grant day and/or a rebalance day. They share the same simulation e
 (:mod:`rsu_rebalancing.simulate`), so they differ only in this small `step` method.
 """
 
-from __future__ import annotations
-
 from typing import Protocol
 
 import pandas as pd

@@ -5,8 +5,6 @@ This ties together prices (:mod:`rsu_rebalancing.data`), the calendar
 (:mod:`rsu_rebalancing.strategy`) to produce a per-day value series and a trade log.
 """
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass
 
 import pandas as pd

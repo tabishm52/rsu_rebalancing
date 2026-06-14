@@ -8,8 +8,6 @@ schedule. Final dollar value is still reported directly, and is a fair head-to-h
 number because every strategy receives the identical grant stream.
 """
 
-from __future__ import annotations
-
 import numpy as np
 import pandas as pd
 

@@ -6,8 +6,6 @@ open. These pure functions translate those rules against a known set of trading 
 so they are fully testable without any network access.
 """
 
-from __future__ import annotations
-
 import pandas as pd
 
 from .config import GrantSchedule
