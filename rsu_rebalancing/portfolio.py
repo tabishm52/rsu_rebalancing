@@ -9,6 +9,9 @@ holds no dates or prices of its own.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
+
+import pandas as pd
 
 # Shares below this are treated as zero, to avoid float dust accumulating in lots.
 _SHARE_EPS = 1e-9
@@ -16,7 +19,13 @@ _SHARE_EPS = 1e-9
 
 @dataclass
 class Lot:
-    """A block of employer shares acquired at one cost basis (one vesting event)."""
+    """A block of employer shares acquired at one cost basis (one vesting event).
+
+    Attributes:
+        shares: Number of employer shares in the lot.
+        cost_per_share: Per-share cost basis (the vest-day price); the lot's total
+            basis is ``shares * cost_per_share``.
+    """
 
     shares: float
     cost_per_share: float
@@ -24,20 +33,36 @@ class Lot:
 
 @dataclass
 class TradeRecord:
-    """An audit-log row for a single grant or sale."""
+    """An audit-log row for a single grant or sale.
 
-    date: object  # pd.Timestamp; kept loose to avoid a hard import here.
-    kind: str  # "grant" | "rebalance" | "liquidate"
-    employer_shares: float  # signed: + on grant, - on sale
+    Attributes:
+        date: Trade date.
+        kind: What the trade represents.
+        employer_shares: Employer shares transacted, signed: ``+`` on a grant, ``-`` on a sale.
+        employer_price: Employer share price at the trade.
+        gross_value: Absolute dollar value transacted in employer stock.
+        tax_paid: Capital-gains tax paid out of the sale proceeds.
+        index_dollars_in: Net dollars moved into the index position.
+    """
+
+    date: pd.Timestamp
+    kind: Literal["grant", "rebalance", "liquidate"]
+    employer_shares: float
     employer_price: float
-    gross_value: float  # absolute dollar value transacted in employer stock
+    gross_value: float
     tax_paid: float
-    index_dollars_in: float  # net dollars moved into the index position
+    index_dollars_in: float
 
 
 @dataclass
 class Portfolio:
-    """Holdings in employer stock (as cost lots) plus a diversified index position."""
+    """Holdings in employer stock (as cost lots) plus a diversified index position.
+
+    Attributes:
+        employer_lots: FIFO cost lots of employer stock, oldest first.
+        index_shares: Shares of the diversified index. Tracked as a plain count with no
+            cost basis, since the index is only ever bought, never sold.
+    """
 
     employer_lots: list[Lot] = field(default_factory=list)
     index_shares: float = 0.0
@@ -66,7 +91,7 @@ class Portfolio:
             return 0.0
         return self.employer_value(employer_price) / total
 
-    def add_grant(self, date: object, dollars: float, employer_price: float) -> TradeRecord:
+    def add_grant(self, date: pd.Timestamp, dollars: float, employer_price: float) -> TradeRecord:
         """Vest ``dollars`` of employer stock at ``employer_price`` as a new lot."""
         shares = dollars / employer_price
         self.employer_lots.append(Lot(shares=shares, cost_per_share=employer_price))
@@ -98,7 +123,7 @@ class Portfolio:
 
     def sell_employer_to_fraction(
         self,
-        date: object,
+        date: pd.Timestamp,
         target_fraction: float,
         employer_price: float,
         index_price: float,
