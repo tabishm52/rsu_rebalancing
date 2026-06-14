@@ -109,14 +109,22 @@ class Portfolio:
         proceeds = 0.0
         cost = 0.0
         while remaining > _SHARE_EPS and self.employer_lots:
+            # Take from the oldest lot: the whole lot, or just what's left to sell.
             lot = self.employer_lots[0]
             take = min(lot.shares, remaining)
+
+            # Record the sale value and the cost basis of the shares sold.
             proceeds += take * price
             cost += take * lot.cost_per_share
+
+            # Shrink the lot and the outstanding ask.
             lot.shares -= take
             remaining -= take
+
+            # Evict the lot once it's drained.
             if lot.shares <= _SHARE_EPS:
                 self.employer_lots.pop(0)
+
         return proceeds, proceeds - cost
 
     def sell_employer_to_fraction(
@@ -149,12 +157,15 @@ class Portfolio:
         if total <= 0.0:
             return None
 
+        # Dollar value of employer stock above the target fraction, sized pre-tax.
         sell_value = employer_val - target_fraction * total
         if sell_value <= _SHARE_EPS * employer_price:
             return None  # already at or below the target fraction
 
         shares_to_sell = sell_value / employer_price
         proceeds, gain = self._sell_employer_shares(shares_to_sell, employer_price)
+
+        # Pay capital-gains tax out of the proceeds; reinvest the remainder in the index.
         tax = max(gain, 0.0) * capital_gains_rate
         net = proceeds - tax
         self.index_shares += net / index_price
