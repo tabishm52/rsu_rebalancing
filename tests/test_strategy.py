@@ -6,7 +6,7 @@ from pytest import approx
 from rsu_rebalancing.simulate import run_rule
 from rsu_rebalancing.strategy import HoldEverything, SellAllAtVest, ThresholdRebalance
 
-# A small synthetic price frame: employer doubles, index flat. No network needed.
+# A small synthetic price frame: employer doubles, index flat.
 DATES = pd.bdate_range("2020-01-01", periods=10)
 PRICES = pd.DataFrame(
     {
@@ -48,6 +48,45 @@ def test_threshold_trims_to_target_on_rebalance_day():
     # On/after the rebalance day, employer is trimmed to the threshold.
     assert result.employer_fraction.loc[REBALANCE_DAY] == approx(1 / 3)
     assert (result.trades["kind"] == "rebalance").sum() == 1
+
+
+def test_tax_leaves_employer_fraction_above_target():
+    rule = ThresholdRebalance(threshold=1 / 3, capital_gains_rate=0.2)
+
+    result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], rule)
+
+    # The sale is sized pre-tax to hit 1/3, but tax is then paid out of the proceeds, so
+    # less reaches the index and the employer fraction lands a touch above the target.
+    assert result.employer_fraction.loc[REBALANCE_DAY] > 1 / 3
+    assert (result.trades["tax_paid"] > 0).any()
+
+
+def test_rebalance_is_noop_when_already_below_target():
+    # Employer halves after the first trim, dropping the fraction below the threshold, so
+    # the second rebalance day finds nothing to sell.
+    dates = pd.bdate_range("2020-01-01", periods=4)
+    prices = pd.DataFrame({"EMP": [10, 10, 5, 5], "IDX": [100] * 4}, index=dates)
+    grants = {dates[0]: 30_000.0}  # 3000 employer shares at $10
+    rule = ThresholdRebalance(threshold=1 / 3)
+
+    result = run_rule(prices, "EMP", "IDX", grants, [dates[1], dates[3]], rule)
+
+    # The first rebalance trims to 1/3; by the second, the fallen price already puts
+    # employer below 1/3, so only the one rebalance trade is recorded.
+    assert (result.trades["kind"] == "rebalance").sum() == 1
+    assert result.employer_fraction.loc[dates[3]] < 1 / 3
+
+
+def test_grant_vests_before_rebalancing_on_a_shared_day():
+    rule = ThresholdRebalance(threshold=1 / 3)
+
+    result = run_rule(PRICES, "EMP", "IDX", GRANTS, [GRANT_DAY], rule)
+
+    # Grant and rebalance fall on the same day: the grant must vest first, so the trim
+    # has a position to size against and lands on the target. (Were the order reversed,
+    # the trim would find an empty portfolio and the grant would stay untrimmed at 1.0.)
+    assert list(result.trades["kind"]) == ["grant", "rebalance"]
+    assert result.employer_fraction.loc[GRANT_DAY] == approx(1 / 3)
 
 
 def test_contributions_recorded_only_on_grant_day():
