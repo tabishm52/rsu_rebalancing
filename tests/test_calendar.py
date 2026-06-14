@@ -16,11 +16,13 @@ TRADING_DAYS = pd.bdate_range("2020-01-01", "2021-12-31")
 def test_first_trading_day_snaps_forward_over_weekend():
     # 2020-03-01 is a Sunday; the next trading day is Monday the 2nd.
     got = first_trading_day_on_or_after(TRADING_DAYS, pd.Timestamp("2020-03-01"))
+
     assert got == pd.Timestamp("2020-03-02")
 
 
 def test_first_trading_day_returns_same_day_when_open():
     got = first_trading_day_on_or_after(TRADING_DAYS, pd.Timestamp("2020-03-02"))
+
     assert got == pd.Timestamp("2020-03-02")
 
 
@@ -30,6 +32,7 @@ def test_first_trading_day_past_end_is_none():
 
 def test_grant_dates_snap_and_carry_dollars():
     schedule = GrantSchedule(annual_dollars=50_000, start_year=2020, end_year=2021)
+
     grants = grant_trade_dates(TRADING_DAYS, schedule)
 
     assert grants == {
@@ -65,5 +68,7 @@ def test_rebalance_offsets_count_into_the_quarter():
 def test_rebalance_single_day_quarter_collapses_to_one():
     # A quarter with a single trading day: both offsets clamp to that day and collapse.
     tiny = pd.DatetimeIndex([pd.Timestamp("2020-01-01")])
+
     days = rebalance_trade_dates(tiny, days_after_quarter_start=10, days_before_quarter_end=10)
+
     assert days == [pd.Timestamp("2020-01-01")]

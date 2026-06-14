@@ -22,6 +22,7 @@ REBALANCE_DAY = DATES[5]  # employer = $15 here
 
 def test_hold_everything_never_sells():
     result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], HoldEverything())
+
     assert (result.trades["kind"] == "grant").all()
     # All value stays in employer stock; fraction is 1.0 throughout (after the grant).
     assert result.employer_fraction.loc[GRANT_DAY:].eq(1.0).all()
@@ -30,6 +31,7 @@ def test_hold_everything_never_sells():
 
 def test_sell_all_at_vest_holds_no_employer_after_grant():
     result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], SellAllAtVest())
+
     # The grant is fully converted to the index the same day.
     assert result.employer_fraction.loc[GRANT_DAY:].eq(0.0).all()
     assert result.final_portfolio.employer_shares == approx(0.0, abs=1e-6)
@@ -38,6 +40,7 @@ def test_sell_all_at_vest_holds_no_employer_after_grant():
 
 def test_threshold_trims_to_target_on_rebalance_day():
     rule = ThresholdRebalance(threshold=1 / 3)
+
     result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], rule)
 
     # Before the rebalance, the (only) holding is employer stock -> fraction 1.0.
@@ -49,6 +52,7 @@ def test_threshold_trims_to_target_on_rebalance_day():
 
 def test_contributions_recorded_only_on_grant_day():
     result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], ThresholdRebalance(1 / 3))
+
     assert result.contributions.loc[GRANT_DAY] == 22_000.0
     assert result.contributions.drop(GRANT_DAY).eq(0.0).all()
     assert result.contributions.sum() == 22_000.0

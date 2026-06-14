@@ -31,13 +31,16 @@ def test_time_weighted_returns_strip_contributions():
 
 def test_growth_of_one_compounds():
     returns = pd.Series([0.10, -0.05, 0.05])
+
     curve = growth_of_one(returns)
+
     assert curve.iloc[-1] == approx(1.10 * 0.95 * 1.05)
 
 
 def test_max_drawdown_is_largest_peak_to_trough():
     # Up 20%, then down to 0.84 of peak (a 30% drawdown), then partial recovery.
     returns = pd.Series([0.20, -0.30, 0.10])
+
     # Peak growth = 1.20; trough = 1.20 * 0.70 = 0.84 -> drawdown = 0.84/1.20 - 1 = -0.30.
     assert max_drawdown(returns) == approx(-0.30)
 
@@ -46,9 +49,11 @@ def test_annualized_volatility_scales_by_sqrt_252():
     rng = np.random.default_rng(0)
     returns = pd.Series(rng.normal(0, 0.01, size=1000))
     expected = returns.std(ddof=1) * np.sqrt(252)
+
     assert annualized_volatility(returns) == approx(expected)
 
 
 def test_sharpe_zero_volatility_is_nan():
     returns = pd.Series([0.001, 0.001, 0.001])  # constant -> zero std
+
     assert np.isnan(sharpe_ratio(returns))
