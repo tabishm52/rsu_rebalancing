@@ -77,3 +77,19 @@ uv run marimo edit notebooks/rebalance_sim.py
   price frames; call `run_rule` (not `run_backtest`) so no fetch happens.
 - **Data is fetched live by default.** Set `RSU_REBALANCING_CACHE_DIR` to cache to disk;
   the cache is never auto-refreshed — delete files to refetch.
+
+### Commit messages
+
+[Conventional Commits](https://www.conventionalcommits.org): `type(scope): description`.
+Common types: `feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `build` (deps /
+`pyproject.toml`), `ci`, `style`, `chore`.
+
+- **Scope names the module the change is confined to** (`fix(portfolio)`,
+  `feat(strategy)`, `refactor(notebooks)`); omit it for cross-cutting changes. Scope by
+  whatever the module is called at commit time — a scope that later moves in the planned
+  reorg is fine, since the message is a snapshot of intent, not a live pointer.
+- **The sim notebook (`notebooks/rebalance_sim.py`) is a deliverable.** Pick its type by
+  intent like source: new control/panel/analysis → `feat`, wrong calc / broken cell →
+  `fix`, same-output rework (e.g. swapping plot libs) → `refactor`, cosmetic styling →
+  `style`. Scope it `(notebooks)` so it reads as the demo surface, not the engine.
+- **The scratchpad (`notebooks/exploration.py`) is throwaway** — its changes stay `chore`.
