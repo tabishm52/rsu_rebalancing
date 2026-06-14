@@ -72,3 +72,34 @@ def test_rebalance_single_day_quarter_collapses_to_one():
     days = rebalance_trade_dates(tiny, days_after_quarter_start=10, days_before_quarter_end=10)
 
     assert days == [pd.Timestamp("2020-01-01")]
+
+
+def test_rebalance_crossed_offsets_still_yield_a_sorted_pair():
+    # Offsets large enough to cross within a quarter: "early" lands after "late". The
+    # result is still two valid, deduplicated, sorted days for the quarter.
+    days = rebalance_trade_dates(
+        TRADING_DAYS, days_after_quarter_start=50, days_before_quarter_end=50
+    )
+    q1_days = [d for d in days if d.year == 2020 and d.quarter == 1]
+
+    assert len(q1_days) == 2
+    assert q1_days == sorted(q1_days)
+
+
+def test_grant_dates_on_same_trading_day_accumulate():
+    # When the only available trading day falls after several grant dates, those grants
+    # all snap forward to it and their dollars sum.
+    sparse = pd.DatetimeIndex([pd.Timestamp("2021-06-01")])
+    schedule = GrantSchedule(annual_dollars=50_000, start_year=2020, end_year=2021)
+
+    grants = grant_trade_dates(sparse, schedule)
+
+    assert grants == {pd.Timestamp("2021-06-01"): 100_000}
+
+
+def test_empty_trading_days_yield_no_dates():
+    empty = pd.DatetimeIndex([])
+    schedule = GrantSchedule(annual_dollars=50_000, start_year=2020, end_year=2021)
+
+    assert grant_trade_dates(empty, schedule) == {}
+    assert rebalance_trade_dates(empty, days_after_quarter_start=5, days_before_quarter_end=5) == []
