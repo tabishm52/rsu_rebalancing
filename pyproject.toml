@@ -14,6 +14,7 @@ dependencies = [
     "marimo",
     "matplotlib",
     "seaborn",
+    "quantstats",
 ]
 
 [project.optional-dependencies]
@@ -60,6 +61,13 @@ files = ["rsu_rebalancing"]
 ignore_missing_imports = true
 warn_unused_ignores = false
 check_untyped_defs = true
+
+# quantstats ships a py.typed marker but annotates its stats functions as
+# `float | Series`, so wrapping a known-scalar result in float() trips arg-type.
+# Treat it as untyped (its exports become Any) rather than scatter inline ignores.
+[[tool.mypy.overrides]]
+module = "quantstats.*"
+follow_imports = "skip"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
