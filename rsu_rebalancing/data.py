@@ -49,8 +49,10 @@ def get_prices(
     """
     start_ts = pd.Timestamp(start).normalize()
     end_ts = pd.Timestamp(end).normalize()
+    # yfinance treats end as exclusive; bump a day so the caller's end date is included.
+    fetch_end = end_ts + pd.Timedelta(days=1)
     # Copy so callers can't mutate the memoized object.
-    return _get_prices_cached(ticker.upper(), start_ts.isoformat(), end_ts.isoformat()).copy()
+    return _get_prices_cached(ticker.upper(), start_ts.isoformat(), fetch_end.isoformat()).copy()
 
 
 def get_price_frame(
