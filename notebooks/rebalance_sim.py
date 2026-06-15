@@ -73,7 +73,7 @@ def _(mo):
     start = mo.ui.text(value="2015-01-01", label="Start date")
     end = mo.ui.text(value="2024-12-31", label="End date")
     annual_dollars = mo.ui.number(
-        value=100_000, start=0, stop=10_000_000, step=1_000, label="Annual grant $"
+        value=100_000, start=1, stop=10_000_000, step=1_000, label="Annual grant $"
     )
     threshold = mo.ui.slider(
         start=5, stop=100, value=33, step=1, label="Threshold %", show_value=True
