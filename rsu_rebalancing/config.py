@@ -32,6 +32,23 @@ class GrantSchedule:
     grant_month: int = 3
     grant_day: int = 1
 
+    def __post_init__(self) -> None:
+        """Validate parameter ranges."""
+        if self.annual_dollars <= 0.0:
+            raise ValueError(f"annual_dollars must be > 0; got {self.annual_dollars}")
+        if self.start_year > self.end_year:
+            raise ValueError(
+                f"start_year ({self.start_year}) must be <= end_year ({self.end_year})"
+            )
+        # Probe month/day against a non-leap year so the grant date is valid in every
+        # year (this rejects Feb 29, which only some years would accept).
+        try:
+            pd.Timestamp(year=2001, month=self.grant_month, day=self.grant_day)
+        except ValueError as exc:
+            raise ValueError(
+                f"invalid grant_month/grant_day: {self.grant_month}/{self.grant_day}"
+            ) from exc
+
     def nominal_grant_dates(self) -> list[pd.Timestamp]:
         """Return the nominal (calendar) grant date for each year in the range."""
         return [
