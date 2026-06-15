@@ -79,7 +79,9 @@ class StrategyConfig:
     capital_gains_rate: float = 0.0
 
     def __post_init__(self) -> None:
-        """Validate parameter ranges."""
+        """Upper-case the tickers (the canonical form downstream) and validate ranges."""
+        object.__setattr__(self, "employer_ticker", self.employer_ticker.upper())
+        object.__setattr__(self, "index_ticker", self.index_ticker.upper())
         if not 0.0 < self.threshold <= 1.0:
             raise ValueError(f"threshold must be in (0, 1]; got {self.threshold}")
         if not 0.0 <= self.capital_gains_rate < 1.0:

@@ -52,8 +52,8 @@ def run_rule(
 
     Args:
         prices: Aligned daily prices with one column per ticker.
-        employer_ticker: Column name of the employer stock.
-        index_ticker: Column name of the diversified index.
+        employer_ticker: Employer-stock column in ``prices`` (assumed upper-cased).
+        index_ticker: Diversified-index column in ``prices`` (assumed upper-cased).
         grants: Mapping of trading day to grant dollars.
         rebalance_days: Trading days on which the rule may rebalance.
         rule: The strategy logic to apply each day.
@@ -61,8 +61,8 @@ def run_rule(
     Returns:
         A :class:`SimResult` for this rule.
     """
-    employer = prices[employer_ticker.upper()]
-    index = prices[index_ticker.upper()]
+    employer = prices[employer_ticker]
+    index = prices[index_ticker]
     rebalance_set = set(rebalance_days)
 
     portfolio = Portfolio()

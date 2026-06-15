@@ -54,6 +54,13 @@ def test_grant_schedule_rejects_out_of_range_month():
 # --- StrategyConfig --------------------------------------------------------
 
 
+def test_strategy_config_upper_cases_tickers():
+    config = StrategyConfig(employer_ticker="aapl", index_ticker="vti")
+
+    assert config.employer_ticker == "AAPL"
+    assert config.index_ticker == "VTI"
+
+
 @pytest.mark.parametrize("threshold", [0.0, 1.5])
 def test_strategy_config_rejects_threshold_out_of_range(threshold):
     with pytest.raises(ValueError, match="threshold must be in"):
