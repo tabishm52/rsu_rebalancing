@@ -1,12 +1,17 @@
-"""Tests for return/risk metrics, especially contribution stripping (TWR)."""
+"""Tests for return/risk metrics, especially contribution stripping (TWR).
+
+The risk/return stats delegate to quantstats, so these tests cover only our own seams:
+functions with no library underneath, our deliberate overrides, and our guards. We do
+not re-derive or pin quantstats' own math.
+"""
 
 import numpy as np
 import pandas as pd
 from pytest import approx
 
 from rsu_rebalancing.metrics import (
+    _contributions_from_trades,
     annualized_return,
-    annualized_volatility,
     growth_of_one,
     max_drawdown,
     sharpe_ratio,
@@ -30,6 +35,19 @@ def test_time_weighted_returns_strip_contributions():
     assert returns.iloc[2] == approx(0.05)  # 231 / 220 - 1
 
 
+def test_time_weighted_returns_scrub_divide_by_zero():
+    # A prior value of 0 makes the return undefined: 0/0 -> NaN, x/0 -> inf. Both must
+    # be scrubbed to 0.0 so an empty-then-funded portfolio doesn't poison the series.
+    values = pd.Series([0.0, 100.0, 0.0, 50.0], index=DATES)
+    contributions = pd.Series([0.0, 100.0, 0.0, 0.0], index=DATES)
+
+    returns = time_weighted_returns(values, contributions)
+
+    assert returns.iloc[0] == 0.0  # (100 - 100) / 0 -> NaN -> 0
+    assert returns.iloc[1] == approx(-1.0)  # (0 - 0) / 100 - 1
+    assert returns.iloc[2] == 0.0  # (50 - 0) / 0 -> inf -> 0
+
+
 def test_growth_of_one_compounds():
     returns = pd.Series([0.10, -0.05, 0.05])
 
@@ -38,39 +56,31 @@ def test_growth_of_one_compounds():
     assert curve.iloc[-1] == approx(1.10 * 0.95 * 1.05)
 
 
-def test_max_drawdown_is_largest_peak_to_trough():
-    # Up 20%, then down to 0.84 of peak (a 30% drawdown), then partial recovery.
-    returns = pd.Series([0.20, -0.30, 0.10], index=DATES[:3])
-
-    # Peak growth = 1.20; trough = 1.20 * 0.70 = 0.84 -> drawdown = 0.84/1.20 - 1 = -0.30.
-    assert max_drawdown(returns) == approx(-0.30)
+def test_annualized_return_empty_is_nan():
+    assert np.isnan(annualized_return(pd.Series([], dtype=float)))
 
 
-def test_max_drawdown_counts_decline_from_the_start():
-    # A window that opens by falling: the trough is below the 1.0 starting baseline,
-    # so the drawdown is measured from initial capital, not the first day's value.
-    returns = pd.Series([-0.10, -0.05, 0.03], index=DATES[:3])
-
-    # Curve = [0.90, 0.855, 0.881]; trough 0.855 vs baseline 1.0 -> 0.855 - 1 = -0.145.
-    assert max_drawdown(returns) == approx(-0.145)
+def test_max_drawdown_empty_is_nan():
+    assert np.isnan(max_drawdown(pd.Series([], dtype=float)))
 
 
-def test_annualized_return_annualizes_by_252():
-    # A constant daily return compounds to (1 + r) ** 252 - 1 once annualized,
-    # independent of the sample length (here a quarter's worth of days).
-    daily = 0.002
-    returns = pd.Series(daily, index=pd.bdate_range("2020-01-01", periods=63))
-    expected = (1 + daily) ** 252 - 1
+def test_contributions_count_only_grants():
+    # Grants are the only external inflow; rebalances move money internally and tax is a
+    # cost. Only grant gross_value should land in the contribution series, summed per day.
+    trades = pd.DataFrame(
+        {
+            "kind": ["grant", "grant", "rebalance", "tax"],
+            "date": [DATES[0], DATES[0], DATES[1], DATES[1]],
+            "gross_value": [100.0, 50.0, 200.0, 30.0],
+        }
+    )
 
-    assert annualized_return(returns) == approx(expected)
+    contributions = _contributions_from_trades(trades, DATES)
 
-
-def test_annualized_volatility_scales_by_sqrt_252():
-    rng = np.random.default_rng(0)
-    returns = pd.Series(rng.normal(0, 0.01, size=1000))
-    expected = returns.std(ddof=1) * np.sqrt(252)
-
-    assert annualized_volatility(returns) == approx(expected)
+    assert list(contributions.index) == list(DATES)
+    assert contributions.iloc[0] == approx(150.0)  # two grants on day 0, summed
+    assert contributions.iloc[1] == 0.0  # rebalance + tax are not inflows
+    assert contributions.iloc[2] == 0.0  # no trades -> filled with 0
 
 
 def test_sharpe_zero_volatility_is_nan():
