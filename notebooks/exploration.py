@@ -3,8 +3,8 @@
 Run with: ``uv run marimo edit notebooks/exploration.py``
 
 This is a learning notebook, not part of the package API -- a place to poke at the
-data layer and basic pandas financial idioms (returns, normalization, rolling stats)
-before the structured simulation in ``rebalance_sim.py``.
+data layer and basic financial idioms (returns, normalization, rolling stats) in raw
+pandas and via quantstats, before the structured simulation in ``rebalance_sim.py``.
 """
 
 import marimo
@@ -17,12 +17,30 @@ app = marimo.App(width="medium")
 def _():
     import marimo as mo
     import matplotlib.pyplot as plt
+    import pandas as pd
+    import quantstats as qs
     import seaborn as sns
 
-    from rsu_rebalancing import get_price_frame
+    from rsu_rebalancing import (
+        annualized_return,
+        annualized_volatility,
+        get_price_frame,
+        max_drawdown,
+        sharpe_ratio,
+    )
 
     sns.set_theme()
-    return get_price_frame, mo, plt
+    return (
+        annualized_return,
+        annualized_volatility,
+        get_price_frame,
+        max_drawdown,
+        mo,
+        pd,
+        plt,
+        qs,
+        sharpe_ratio,
+    )
 
 
 @app.cell
@@ -37,7 +55,9 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    mo.md("## Controls")
+    mo.md("""
+    ## Controls
+    """)
     return
 
 
@@ -60,7 +80,9 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    mo.md("## Price data")
+    mo.md("""
+    ## Price data
+    """)
     return
 
 
@@ -75,28 +97,23 @@ def _(end, get_price_frame, mo, start, ticker_a, ticker_b):
         error = str(exc)
 
     mo.stop(error is not None, mo.md(f"⚠️ **Could not fetch:** {error}"))
-    prices.tail()
+    prices
     return (prices,)
 
 
 @app.cell
-def _(prices):
-    # Normalize each series to start at 1.0 to compare growth on the same scale.
-    normalized = prices / prices.iloc[0]
-    normalized.tail()
-    return (normalized,)
-
-
-@app.cell
 def _(mo):
-    mo.md("## Cumulative performance")
+    mo.md("""
+    ## Cumulative performance
+    """)
     return
 
 
 @app.cell
-def _(normalized, plt):
+def _(plt, prices):
     # Growth chart, rebased to 100 at the start date.
     fig, ax = plt.subplots(figsize=(12, 6))
+    normalized = prices / prices.iloc[0]
     (normalized * 100).plot(ax=ax)
     ax.set_xlabel("Date")
     ax.set_ylabel("Index (start = 100)")
@@ -108,24 +125,76 @@ def _(normalized, plt):
 
 @app.cell
 def _(mo):
-    mo.md("## Returns & volatility")
+    mo.md("""
+    ## Daily returns
+    """)
     return
 
 
 @app.cell
 def _(prices):
-    # Daily returns and annualized volatility -- core pandas financial idioms.
+    # Daily returns by hand -- the series the summary table below is built from.
     daily_returns = prices.pct_change().dropna()
-    annualized_vol = daily_returns.std() * (252**0.5)
-    annualized_vol
+    daily_returns
     return (daily_returns,)
 
 
 @app.cell
-def _(daily_returns):
-    # 63-day (~one quarter) rolling volatility, annualized.
-    rolling_vol = daily_returns.rolling(63).std() * (252**0.5)
-    rolling_vol.tail()
+def _(mo):
+    mo.md("""
+    ## Headline stats (metrics.py)
+    """)
+    return
+
+
+@app.cell
+def _(
+    annualized_return,
+    annualized_volatility,
+    daily_returns,
+    max_drawdown,
+    mo,
+    pd,
+    sharpe_ratio,
+):
+    headline = pd.DataFrame(
+        {
+            "Ann. return": daily_returns.apply(annualized_return),
+            "Ann. volatility": daily_returns.apply(annualized_volatility),
+            "Sharpe": daily_returns.apply(sharpe_ratio),
+            "Max drawdown": daily_returns.apply(max_drawdown),
+        }
+    ).T
+
+    formatters = {
+        "Ann. return": "{:.2%}".format,
+        "Ann. volatility": "{:.2%}".format,
+        "Sharpe": "{:.2f}".format,
+        "Max drawdown": "{:.2%}".format,
+    }
+    styled = pd.DataFrame({row: headline.loc[row].map(fmt) for row, fmt in formatters.items()}).T
+
+    mo.ui.table(styled, selection=None)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md("""
+    ## Full tearsheet per ticker (quantstats)
+    """)
+    return
+
+
+@app.cell
+def _(daily_returns, pd, qs):
+    tearsheet = pd.DataFrame(
+        {
+            col: qs.reports.metrics(daily_returns[col], mode="basic", display=False)["Strategy"]
+            for col in daily_returns.columns
+        }
+    )
+    tearsheet
     return
 
 
