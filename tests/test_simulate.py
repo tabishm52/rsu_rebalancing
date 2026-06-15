@@ -6,9 +6,12 @@ sees the identical grant stream.
 """
 
 import pandas as pd
+from pytest import approx
 
 from rsu_rebalancing import simulate
 from rsu_rebalancing.config import GrantSchedule, SimConfig, StrategyConfig
+from rsu_rebalancing.portfolio import Portfolio
+from rsu_rebalancing.simulate import SimResult
 
 _DATES = pd.bdate_range("2020-01-01", "2020-12-31")
 _PRICES = pd.DataFrame({"EMP": 10.0, "IDX": 100.0}, index=_DATES)
@@ -35,3 +38,30 @@ def test_run_backtest_feeds_identical_grants_to_every_strategy(monkeypatch):
     contributions = [result.contributions for result in results.values()]
     for other in contributions[1:]:
         pd.testing.assert_series_equal(other, contributions[0])
+
+
+def test_contributions_count_only_grants():
+    # Grants are the only external inflow; rebalances move money internally and tax is a
+    # cost. Only grant gross_value lands in the contribution series, summed per day and
+    # aligned (zero-filled) to values.index.
+    trades = pd.DataFrame(
+        {
+            "kind": ["grant", "grant", "rebalance", "tax"],
+            "date": [_DATES[0], _DATES[0], _DATES[1], _DATES[1]],
+            "gross_value": [100.0, 50.0, 200.0, 30.0],
+        }
+    )
+    result = SimResult(
+        name="x",
+        values=pd.Series(0.0, index=_DATES[:3]),
+        employer_fraction=pd.Series(0.0, index=_DATES[:3]),
+        trades=trades,
+        final_portfolio=Portfolio(),
+    )
+
+    contributions = result.contributions
+
+    assert list(contributions.index) == list(_DATES[:3])
+    assert contributions.iloc[0] == approx(150.0)  # two grants on day 0, summed
+    assert contributions.iloc[1] == 0.0  # rebalance + tax are not inflows
+    assert contributions.iloc[2] == 0.0  # no trades -> filled with 0

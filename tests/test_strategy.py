@@ -87,11 +87,3 @@ def test_grant_vests_before_rebalancing_on_a_shared_day():
     # the trim would find an empty portfolio and the grant would stay untrimmed at 1.0.)
     assert list(result.trades["kind"]) == ["grant", "rebalance"]
     assert result.employer_fraction.loc[GRANT_DAY] == approx(1 / 3)
-
-
-def test_contributions_recorded_only_on_grant_day():
-    result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], ThresholdRebalance(1 / 3))
-
-    assert result.contributions.loc[GRANT_DAY] == 22_000.0
-    assert result.contributions.drop(GRANT_DAY).eq(0.0).all()
-    assert result.contributions.sum() == 22_000.0

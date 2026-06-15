@@ -10,7 +10,6 @@ import pandas as pd
 from pytest import approx
 
 from rsu_rebalancing.metrics import (
-    _contributions_from_trades,
     annualized_return,
     growth_of_one,
     max_drawdown,
@@ -62,25 +61,6 @@ def test_annualized_return_empty_is_nan():
 
 def test_max_drawdown_empty_is_nan():
     assert np.isnan(max_drawdown(pd.Series([], dtype=float)))
-
-
-def test_contributions_count_only_grants():
-    # Grants are the only external inflow; rebalances move money internally and tax is a
-    # cost. Only grant gross_value should land in the contribution series, summed per day.
-    trades = pd.DataFrame(
-        {
-            "kind": ["grant", "grant", "rebalance", "tax"],
-            "date": [DATES[0], DATES[0], DATES[1], DATES[1]],
-            "gross_value": [100.0, 50.0, 200.0, 30.0],
-        }
-    )
-
-    contributions = _contributions_from_trades(trades, DATES)
-
-    assert list(contributions.index) == list(DATES)
-    assert contributions.iloc[0] == approx(150.0)  # two grants on day 0, summed
-    assert contributions.iloc[1] == 0.0  # rebalance + tax are not inflows
-    assert contributions.iloc[2] == 0.0  # no trades -> filled with 0
 
 
 def test_sharpe_zero_volatility_is_nan():

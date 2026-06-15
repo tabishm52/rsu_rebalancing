@@ -104,18 +104,6 @@ def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
     return float(qs.stats.sharpe(returns, rf=risk_free_rate, periods=TRADING_DAYS_PER_YEAR))
 
 
-def _contributions_from_trades(trades: pd.DataFrame, index: pd.Index) -> pd.Series:
-    """Daily external contributions, recovered from the trade log.
-
-    Grants are the only external inflow; rebalances move money internally and tax is a
-    cost, not a withdrawal. So contributions are the grant rows' gross value, summed per
-    day and aligned to ``index``.
-    """
-    grants = trades.loc[trades["kind"] == "grant", ["date", "gross_value"]]
-    by_day = grants.groupby("date")["gross_value"].sum()
-    return by_day.reindex(index, fill_value=0.0)
-
-
 def summarize(result: SimResult, risk_free_rate: float = 0.0) -> pd.Series:
     """Build a one-row summary of return and risk metrics for a strategy.
 
@@ -126,7 +114,7 @@ def summarize(result: SimResult, risk_free_rate: float = 0.0) -> pd.Series:
     Returns:
         A Series of labelled metrics, suitable as one column of a comparison table.
     """
-    contributions = _contributions_from_trades(result.trades, result.values.index)
+    contributions = result.contributions
     returns = time_weighted_returns(result.values, contributions)
     return pd.Series(
         {

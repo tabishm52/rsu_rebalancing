@@ -26,8 +26,6 @@ class SimResult:
             zero-value days before the first grant lands; ``metrics.time_weighted_returns``
             neutralizes these, so they carry no spurious return.
         employer_fraction: Daily employer-stock share of total holdings.
-        contributions: External cash added each day (grant dollars; 0 otherwise).
-            Identical across strategies, but carried here so metrics are self-contained.
         trades: Audit log of every grant and sale, one row each.
         final_portfolio: The portfolio state at the end of the run.
     """
@@ -35,9 +33,21 @@ class SimResult:
     name: str
     values: pd.Series
     employer_fraction: pd.Series
-    contributions: pd.Series
     trades: pd.DataFrame
     final_portfolio: Portfolio
+
+    @property
+    def contributions(self) -> pd.Series:
+        """External inflows per day, recovered from the trade log.
+
+        Grants are the only inflow; rebalances move money internally and tax is a cost,
+        not a withdrawal. So contributions are the grant rows' gross value, summed per
+        day and aligned to ``values.index`` (zero-filled). Recomputed on each access;
+        cheap over the in-memory log, and never stale.
+        """
+        grants = self.trades.loc[self.trades["kind"] == "grant", ["date", "gross_value"]]
+        by_day = grants.groupby("date")["gross_value"].sum()
+        return by_day.reindex(self.values.index, fill_value=0.0)
 
 
 def run_rule(
@@ -69,7 +79,6 @@ def run_rule(
     records = []
     values: dict[pd.Timestamp, float] = {}
     fractions: dict[pd.Timestamp, float] = {}
-    contributions: dict[pd.Timestamp, float] = {}
 
     for date in prices.index:
         emp_price = float(employer.loc[date])
@@ -87,14 +96,12 @@ def run_rule(
 
         values[date] = portfolio.total_value(emp_price, idx_price)
         fractions[date] = portfolio.employer_fraction(emp_price, idx_price)
-        contributions[date] = grant_dollars or 0.0
 
     trades = pd.DataFrame([asdict(r) for r in records])
     return SimResult(
         name=rule.name,
         values=pd.Series(values, name=rule.name),
         employer_fraction=pd.Series(fractions, name=rule.name),
-        contributions=pd.Series(contributions, name="contributions"),
         trades=trades,
         final_portfolio=portfolio,
     )
