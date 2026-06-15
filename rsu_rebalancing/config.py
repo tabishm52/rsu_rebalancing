@@ -5,7 +5,7 @@ stream, the strategy parameters, and the date window). They hold no price data a
 do no I/O, which keeps them trivial to construct in tests and notebooks.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 
@@ -58,6 +58,43 @@ class GrantSchedule:
 
 
 @dataclass(frozen=True)
+class TaxConfig:
+    """Capital-gains tax rates applied to realized employer-stock gains.
+
+    Gains are taxed by holding period: a lot sold within ``long_term_days`` of its vest
+    date is taxed at ``short_term_rate`` (ordinary income), and one held longer at the
+    lower ``long_term_rate``. Each rate is a single effective figure, so fold any state
+    or NIIT surcharge into it.
+
+    The defaults model nominal marginal tax rates for a California single filer with AGI
+    roughly between $260k and $375k (2024 brackets):
+
+    - ``short_term_rate = 0.48``: 35% federal ordinary income + 9.3% California +
+      3.8% net investment income tax.
+    - ``long_term_rate = 0.28``: 15% federal long-term + 9.3% California + 3.8% net
+      investment income tax.
+
+    Attributes:
+        short_term_rate: Rate on gains realized on lots held <= ``long_term_days``.
+        long_term_rate: Rate on gains realized on lots held > ``long_term_days``.
+        long_term_days: Holding-period boundary in days (US long-term is > 1 year).
+    """
+
+    short_term_rate: float = 0.48
+    long_term_rate: float = 0.28
+    long_term_days: int = 365
+
+    def __post_init__(self) -> None:
+        """Validate the rate ranges and the holding-period boundary."""
+        if not 0.0 <= self.short_term_rate < 1.0:
+            raise ValueError(f"short_term_rate must be in [0, 1); got {self.short_term_rate}")
+        if not 0.0 <= self.long_term_rate < 1.0:
+            raise ValueError(f"long_term_rate must be in [0, 1); got {self.long_term_rate}")
+        if self.long_term_days <= 0:
+            raise ValueError(f"long_term_days must be > 0; got {self.long_term_days}")
+
+
+@dataclass(frozen=True)
 class StrategyConfig:
     """Parameters of the one-way threshold rebalancing strategy.
 
@@ -68,15 +105,14 @@ class StrategyConfig:
             (e.g. ``1/3``). Rebalances trim employer stock down to this fraction.
         rebalances_per_quarter: Number of evenly spaced rebalances to place in each
             quarter.
-        capital_gains_rate: Tax rate applied to realized gains when selling employer
-            stock. ``0.0`` disables taxes (cost basis = vest-day price).
+        tax_config: Capital-gains tax rates applied to realized gains.
     """
 
     employer_ticker: str
     index_ticker: str = "VTI"
     threshold: float = 1.0 / 3.0
     rebalances_per_quarter: int = 2
-    capital_gains_rate: float = 0.0
+    tax_config: TaxConfig = field(default_factory=TaxConfig)
 
     def __post_init__(self) -> None:
         """Upper-case the tickers (the canonical form downstream) and validate ranges."""
@@ -84,8 +120,6 @@ class StrategyConfig:
         object.__setattr__(self, "index_ticker", self.index_ticker.upper())
         if not 0.0 < self.threshold <= 1.0:
             raise ValueError(f"threshold must be in (0, 1]; got {self.threshold}")
-        if not 0.0 <= self.capital_gains_rate < 1.0:
-            raise ValueError(f"capital_gains_rate must be in [0, 1); got {self.capital_gains_rate}")
         if self.rebalances_per_quarter < 1:
             raise ValueError(
                 f"rebalances_per_quarter must be >= 1; got {self.rebalances_per_quarter}"

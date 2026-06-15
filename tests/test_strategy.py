@@ -3,6 +3,7 @@
 import pandas as pd
 from pytest import approx
 
+from rsu_rebalancing.config import TaxConfig
 from rsu_rebalancing.simulate import run_rule
 from rsu_rebalancing.strategy import HoldEverything, SellAllAtVest, ThresholdRebalance
 
@@ -39,7 +40,9 @@ def test_sell_all_at_vest_holds_no_employer_after_grant():
 
 
 def test_threshold_trims_to_target_on_rebalance_day():
-    rule = ThresholdRebalance(threshold=1 / 3)
+    # No tax, so the pre-tax-sized trim lands exactly on target.
+    no_tax = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)
+    rule = ThresholdRebalance(threshold=1 / 3, tax_config=no_tax)
 
     result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], rule)
 
@@ -51,7 +54,7 @@ def test_threshold_trims_to_target_on_rebalance_day():
 
 
 def test_tax_leaves_employer_fraction_above_target():
-    rule = ThresholdRebalance(threshold=1 / 3, capital_gains_rate=0.2)
+    rule = ThresholdRebalance(threshold=1 / 3, tax_config=TaxConfig(short_term_rate=0.2))
 
     result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], rule)
 

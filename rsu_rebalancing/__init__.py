@@ -1,7 +1,8 @@
 """rsu-rebalancing: backtest a one-way threshold rebalancing strategy for RSU comp.
 
 Public API:
-    - Configs: :class:`GrantSchedule`, :class:`StrategyConfig`, :class:`SimConfig`
+    - Configs: :class:`GrantSchedule`, :class:`StrategyConfig`, :class:`SimConfig`,
+      :class:`TaxConfig`
     - Data: :func:`get_prices`, :func:`get_price_frame`
     - Run: :func:`run_backtest`, :class:`SimResult`
     - Metrics: :func:`comparison_table`, :func:`summarize`, :func:`time_weighted_returns`,
@@ -9,7 +10,7 @@ Public API:
       :func:`sharpe_ratio`, :func:`max_drawdown`
 """
 
-from .config import GrantSchedule, SimConfig, StrategyConfig
+from .config import GrantSchedule, SimConfig, StrategyConfig, TaxConfig
 from .data import get_price_frame, get_prices
 from .metrics import (
     annualized_return,
@@ -31,6 +32,7 @@ __all__ = [
     "SimConfig",
     "SimResult",
     "StrategyConfig",
+    "TaxConfig",
     "ThresholdRebalance",
     "annualized_return",
     "annualized_volatility",

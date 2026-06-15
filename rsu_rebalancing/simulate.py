@@ -138,9 +138,9 @@ def run_backtest(
     )
 
     rules: list[RebalanceRule] = [
-        ThresholdRebalance(strategy.threshold, strategy.capital_gains_rate),
+        ThresholdRebalance(strategy.threshold, strategy.tax_config),
         HoldEverything(),
-        SellAllAtVest(strategy.capital_gains_rate),
+        SellAllAtVest(strategy.tax_config),
     ]
     return {
         rule.name: run_rule(

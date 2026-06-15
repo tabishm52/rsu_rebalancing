@@ -10,6 +10,7 @@ from typing import Protocol
 
 import pandas as pd
 
+from .config import TaxConfig
 from .portfolio import Portfolio, TradeRecord
 
 
@@ -54,15 +55,16 @@ class RebalanceRule(Protocol):
 class ThresholdRebalance:
     """Trim employer stock to a target fraction on each rebalance day."""
 
-    def __init__(self, threshold: float, capital_gains_rate: float = 0.0) -> None:
-        """Store the target fraction and tax rate.
+    def __init__(self, threshold: float, tax_config: TaxConfig | None = None) -> None:
+        """Store the target fraction and tax rates.
 
         Args:
             threshold: Target maximum employer fraction; rebalances trim down to this.
-            capital_gains_rate: Tax rate applied to realized gains on each sale.
+            tax_config: Capital-gains rates applied to realized gains; defaults to
+                :class:`TaxConfig`'s standard rates.
         """
         self.threshold = threshold
-        self.capital_gains_rate = capital_gains_rate
+        self.tax_config = tax_config if tax_config is not None else TaxConfig()
         self.name = f"Threshold {threshold:.0%}"
 
     def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
@@ -78,7 +80,7 @@ class ThresholdRebalance:
                 self.threshold,
                 day.employer_price,
                 day.index_price,
-                self.capital_gains_rate,
+                self.tax_config,
             )
             if trade is not None:
                 trades.append(trade)
@@ -110,13 +112,14 @@ class SellAllAtVest:
 
     name = "Sell all at vest"
 
-    def __init__(self, capital_gains_rate: float = 0.0) -> None:
-        """Store the tax rate (gains are ~0 at vest, so tax is usually negligible).
+    def __init__(self, tax_config: TaxConfig | None = None) -> None:
+        """Store the tax rates (gains are ~0 at vest, so tax is usually negligible).
 
         Args:
-            capital_gains_rate: Tax rate applied to realized gains on each sale.
+            tax_config: Capital-gains rates applied to realized gains; defaults to
+                :class:`TaxConfig`'s standard rates.
         """
-        self.capital_gains_rate = capital_gains_rate
+        self.tax_config = tax_config if tax_config is not None else TaxConfig()
 
     def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
         """Vest any grant, then sell the entire employer position into the index."""
@@ -126,7 +129,7 @@ class SellAllAtVest:
         trades = [portfolio.add_grant(day.date, day.grant_dollars, day.employer_price)]
 
         trade = portfolio.sell_employer_to_fraction(
-            day.date, 0.0, day.employer_price, day.index_price, self.capital_gains_rate
+            day.date, 0.0, day.employer_price, day.index_price, self.tax_config
         )
         if trade is not None:
             trades.append(trade)

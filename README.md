@@ -10,7 +10,7 @@ favors clarity over cleverness.
 
 > **Not investment advice.** This is a historical simulation for curiosity and learning.
 > Past performance says nothing about the future, and the model omits real-world details
-> (wash sales, lot-level tax rates, dividends as cash, transaction costs, slippage).
+> (wash sales, tax brackets, dividends as cash, transaction costs, slippage).
 
 ## The strategy
 
@@ -100,8 +100,11 @@ a fair head-to-head number because every strategy receives the identical grant s
 - `threshold` — target max employer fraction (e.g. `1/3`).
 - `rebalances_per_quarter` — how many evenly spaced rebalances to place in each quarter
   (default `2`).
-- `capital_gains_rate` — tax on realized gains; `0.0` disables taxes. Cost basis is the
-  vest-day price, so trimming soon after a grant realizes little gain.
+- `tax_config` — a `TaxConfig` of capital-gains rates applied to realized gains, by holding
+  period: `short_term_rate` for a lot sold within `long_term_days` (default `365`) of its
+  vest, `long_term_rate` for one held longer. Each rate is a single effective figure (fold
+  in any state/NIIT surcharge); the default leaves both at `0.0` (taxes off). Cost basis is
+  the vest-day price, so trimming soon after a grant realizes little gain.
 
 `GrantSchedule`: `annual_dollars`, `start_year`, `end_year`, and optional
 `grant_month`/`grant_day` (default first trading day on/after March 1).

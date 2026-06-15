@@ -24,6 +24,7 @@ def _():
         GrantSchedule,
         SimConfig,
         StrategyConfig,
+        TaxConfig,
         comparison_table,
         growth_of_one,
         run_backtest,
@@ -35,6 +36,7 @@ def _():
         GrantSchedule,
         SimConfig,
         StrategyConfig,
+        TaxConfig,
         comparison_table,
         growth_of_one,
         mo,
@@ -67,7 +69,7 @@ def _(mo):
 
 
 @app.cell
-def _(StrategyConfig, mo):
+def _(StrategyConfig, TaxConfig, mo):
     # Defaults come from the config dataclasses (single source of truth); the notebook
     # only owns UI presentation (widget type, ranges, percent units).
     employer = mo.ui.text(value="AAPL", label="Employer ticker")
@@ -93,38 +95,58 @@ def _(StrategyConfig, mo):
         label="Rebalances per quarter",
         show_value=True,
     )
-    tax_rate = mo.ui.slider(
+    taxes_on = mo.ui.switch(value=True, label="Apply capital-gains taxes")
+    short_term_tax = mo.ui.slider(
         start=0,
-        stop=50,
-        value=round(StrategyConfig.capital_gains_rate * 100),
+        stop=60,
+        value=round(TaxConfig.short_term_rate * 100),
         step=1,
-        label="Capital-gains tax %",
+        label="Short-term cap-gains tax %",
+        show_value=True,
+    )
+    long_term_tax = mo.ui.slider(
+        start=0,
+        stop=40,
+        value=round(TaxConfig.long_term_rate * 100),
+        step=1,
+        label="Long-term cap-gains tax %",
         show_value=True,
     )
     risk_free = mo.ui.slider(
         start=0, stop=8, value=2, step=1, label="Risk-free % (for Sharpe)", show_value=True
     )
 
-    controls = mo.vstack(
+    # The everyday knobs sit up top; the fussy details (exact tax rates, risk-free) tuck
+    # into a collapsed accordion so they're available without crowding the common path.
+    general = mo.vstack(
         [
             mo.hstack([employer, index], justify="start"),
             mo.hstack([start, end], justify="start"),
             annual_dollars,
             threshold,
-            mo.hstack([rebalances], justify="start"),
-            mo.hstack([tax_rate, risk_free], justify="start"),
+            taxes_on,
         ]
     )
+    advanced = mo.vstack(
+        [
+            mo.hstack([rebalances], justify="start"),
+            mo.hstack([short_term_tax, long_term_tax], justify="start"),
+            mo.hstack([risk_free], justify="start"),
+        ]
+    )
+    controls = mo.vstack([general, mo.accordion({"Extra settings": advanced})])
     controls
     return (
         annual_dollars,
         employer,
         end,
         index,
+        long_term_tax,
         rebalances,
         risk_free,
+        short_term_tax,
         start,
-        tax_rate,
+        taxes_on,
         threshold,
     )
 
@@ -142,28 +164,40 @@ def _(
     GrantSchedule,
     SimConfig,
     StrategyConfig,
+    TaxConfig,
     annual_dollars,
     employer,
     end,
     index,
+    long_term_tax,
     mo,
     pd,
     rebalances,
     risk_free,
     run_backtest,
+    short_term_tax,
     start,
-    tax_rate,
+    taxes_on,
     threshold,
 ):
     start_ts = pd.Timestamp(start.value)
     end_ts = pd.Timestamp(end.value)
+
+    # The toggle gates the fine-tuned rates: off means a zero-rate (tax-free) backtest.
+    if taxes_on.value:
+        tax_config = TaxConfig(
+            short_term_rate=short_term_tax.value / 100.0,
+            long_term_rate=long_term_tax.value / 100.0,
+        )
+    else:
+        tax_config = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)
 
     strategy_cfg = StrategyConfig(
         employer_ticker=employer.value,
         index_ticker=index.value,
         threshold=threshold.value / 100.0,
         rebalances_per_quarter=rebalances.value,
-        capital_gains_rate=tax_rate.value / 100.0,
+        tax_config=tax_config,
     )
     schedule = GrantSchedule(
         annual_dollars=annual_dollars.value,

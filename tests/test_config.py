@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from rsu_rebalancing.config import GrantSchedule, SimConfig, StrategyConfig
+from rsu_rebalancing.config import GrantSchedule, SimConfig, StrategyConfig, TaxConfig
 
 # --- GrantSchedule ---------------------------------------------------------
 
@@ -67,15 +67,29 @@ def test_strategy_config_rejects_threshold_out_of_range(threshold):
         StrategyConfig(employer_ticker="AAPL", threshold=threshold)
 
 
-@pytest.mark.parametrize("rate", [-0.1, 1.0])
-def test_strategy_config_rejects_capital_gains_rate_out_of_range(rate):
-    with pytest.raises(ValueError, match="capital_gains_rate must be in"):
-        StrategyConfig(employer_ticker="AAPL", capital_gains_rate=rate)
-
-
 def test_strategy_config_rejects_zero_rebalances():
     with pytest.raises(ValueError, match="rebalances_per_quarter must be >= 1"):
         StrategyConfig(employer_ticker="AAPL", rebalances_per_quarter=0)
+
+
+# --- TaxConfig -------------------------------------------------------------
+
+
+@pytest.mark.parametrize("rate", [-0.1, 1.0])
+def test_tax_config_rejects_short_term_rate_out_of_range(rate):
+    with pytest.raises(ValueError, match="short_term_rate must be in"):
+        TaxConfig(short_term_rate=rate)
+
+
+@pytest.mark.parametrize("rate", [-0.1, 1.0])
+def test_tax_config_rejects_long_term_rate_out_of_range(rate):
+    with pytest.raises(ValueError, match="long_term_rate must be in"):
+        TaxConfig(long_term_rate=rate)
+
+
+def test_tax_config_rejects_non_positive_long_term_days():
+    with pytest.raises(ValueError, match="long_term_days must be > 0"):
+        TaxConfig(long_term_days=0)
 
 
 # --- SimConfig -------------------------------------------------------------
