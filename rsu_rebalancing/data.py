@@ -1,7 +1,7 @@
 """Historical price access via yfinance.
 
-Prices are fetched lazily and memoized in-memory for the session, so changing
-unrelated parameters in the notebook does not re-hit the network.
+Fetched prices are memoized in-memory for the session, so repeating a request
+(e.g. changing unrelated parameters in the notebook) does not re-hit the network.
 """
 
 from functools import lru_cache
@@ -11,19 +11,33 @@ import yfinance as yf
 
 
 @lru_cache(maxsize=64)
-def _get_prices_cached(ticker: str, start_iso: str, end_iso: str) -> pd.Series:
+def _get_prices_cached(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.Series:
     """Fetch split/dividend-adjusted close prices for a single ticker, memoized.
 
-    Keyed by hashable ISO date strings (see :func:`get_prices`).
+    Arguments are pre-normalized by :func:`get_prices` so they serve as stable
+    cache keys. Dates use yfinance's half-open semantics (``start`` inclusive,
+    ``end`` exclusive) -- :func:`get_prices` pre-bumps ``end`` so its own
+    contract stays inclusive.
+
+    Args:
+        ticker: Symbol to fetch, already upper-cased.
+        start: First date to include (inclusive).
+        end: Fetch boundary (exclusive).
+
+    Returns:
+        A float Series of adjusted close prices indexed by trading date
+        (tz-naive, normalized to midnight), named after the ticker.
+
+    Raises:
+        ValueError: If yfinance returns no rows for the ticker and range.
     """
-    start = pd.Timestamp(start_iso)
-    end = pd.Timestamp(end_iso)
     frame = yf.Ticker(ticker).history(start=start, end=end, auto_adjust=True)
     if frame.empty:
         raise ValueError(
             f"No price data returned for {ticker!r} between {start.date()} and {end.date()}. "
             "Check the ticker symbol and date range."
         )
+
     close = frame["Close"].copy()
     # Drop timezone so the index is plain calendar dates, easy to align and compare.
     close.index = close.index.tz_localize(None).normalize()
@@ -46,13 +60,18 @@ def get_prices(
     Returns:
         A float Series of adjusted close prices indexed by trading date (tz-naive),
         named after the ticker.
+
+    Raises:
+        ValueError: If no price data is returned for the ticker and range.
     """
     start_ts = pd.Timestamp(start).normalize()
     end_ts = pd.Timestamp(end).normalize()
+
     # yfinance treats end as exclusive; bump a day so the caller's end date is included.
     fetch_end = end_ts + pd.Timedelta(days=1)
+
     # Copy so callers can't mutate the memoized object.
-    return _get_prices_cached(ticker.upper(), start_ts.isoformat(), fetch_end.isoformat()).copy()
+    return _get_prices_cached(ticker.upper(), start_ts, fetch_end).copy()
 
 
 def get_price_frame(
@@ -63,7 +82,9 @@ def get_price_frame(
     """Return aligned adjusted close prices for several tickers.
 
     Each ticker is fetched independently then aligned on the union of trading dates,
-    with gaps forward-filled so every column has a value on every row.
+    with gaps forward-filled so every column has a value on every row. Forward-fill
+    cannot fill *leading* gaps, so a ticker that started trading after ``start``
+    keeps NaNs until its first quote.
 
     Args:
         tickers: Symbols to fetch.
@@ -72,7 +93,11 @@ def get_price_frame(
 
     Returns:
         A DataFrame indexed by trading date with one column per ticker.
+
+    Raises:
+        ValueError: If any ticker returns no price data for the range.
     """
     columns = {t.upper(): get_prices(t, start, end) for t in tickers}
     frame = pd.DataFrame(columns)
+
     return frame.sort_index().ffill().dropna(how="all")
