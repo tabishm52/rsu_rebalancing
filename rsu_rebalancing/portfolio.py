@@ -1,9 +1,9 @@
 """Portfolio bookkeeping: employer tax lots, an index position, and trade actions.
 
-The portfolio holds two assets: concentrated employer stock (tracked as FIFO cost
-lots so realized gains can be taxed) and a diversified index fund (proceeds of any
-sale flow here). It is a plain mutable object driven by the simulation engine; it
-holds no dates or prices of its own.
+The portfolio holds two assets: concentrated employer stock (tracked as cost lots so
+realized gains can be taxed, sold lowest-tax-first) and a diversified index fund
+(proceeds of any sale flow here). It is a plain mutable object driven by the simulation
+engine; it holds no dates or prices of its own.
 """
 
 from dataclasses import dataclass, field
@@ -62,7 +62,8 @@ class Portfolio:
     """Holdings in employer stock (as cost lots) plus a diversified index position.
 
     Attributes:
-        employer_lots: FIFO cost lots of employer stock, oldest first.
+        employer_lots: Cost lots of employer stock, kept in acquisition order; sales
+            drain them lowest-realized-tax-first, not by position.
         index_shares: Shares of the diversified index. Tracked as a plain count with no
             cost basis, since the index is only ever bought, never sold.
     """
@@ -110,37 +111,58 @@ class Portfolio:
             index_dollars_in=0.0,
         )
 
+    def _tax_per_share(
+        self, lot: TaxLot, price: float, sale_date: pd.Timestamp, tax_config: TaxConfig
+    ) -> float:
+        """Capital-gains tax owed on one share of ``lot`` if sold at ``price``.
+
+        Taxed at the long- or short-term rate by how long the lot was held before
+        ``sale_date``; losses are ignored (a loss share owes no tax).
+        """
+        gain_per_share = price - lot.cost_per_share
+        if gain_per_share <= 0.0:
+            return 0.0
+
+        long_term = (sale_date - lot.acquisition_date).days > tax_config.long_term_days
+        rate = tax_config.long_term_rate if long_term else tax_config.short_term_rate
+
+        return gain_per_share * rate
+
     def _sell_employer_shares(
         self, shares: float, price: float, sale_date: pd.Timestamp, tax_config: TaxConfig
     ) -> tuple[float, float]:
-        """Sell ``shares`` FIFO across lots; return (gross proceeds, tax owed).
+        """Sell ``shares`` lowest-realized-tax-first across lots; return (proceeds, tax).
 
-        Each lot is taxed at the long- or short-term rate depending on how long it was
-        held before ``sale_date``; gains are assessed per lot and losses are ignored.
+        Lots are drained in ascending per-share tax cost, which is the minimum-tax
+        selection for a fixed number of shares. The sort is stable, so equal-tax lots
+        keep their acquisition order; with taxes off every lot ties at zero, so this
+        degenerates to FIFO.
         """
         remaining = shares
         proceeds = 0.0
         tax_owed = 0.0
-        while remaining > _SHARE_EPS and self.employer_lots:
-            # Take from the oldest lot: the whole lot, or just what's left to sell.
-            lot = self.employer_lots[0]
+
+        # Pair each lot with its per-share tax, then drain cheapest-taxed first.
+        keyed = sorted(
+            (
+                (self._tax_per_share(lot, price, sale_date, tax_config), lot)
+                for lot in self.employer_lots
+            ),
+            key=lambda item: item[0],
+        )
+        for tax_ps, lot in keyed:
+            if remaining <= _SHARE_EPS:
+                break
             take = min(lot.shares, remaining)
 
-            # Record the sale value and assess tax on this lot's realized gain at its
-            # holding-period rate, ignoring losses.
             proceeds += take * price
-            lot_gain = take * (price - lot.cost_per_share)
-            long_term = (sale_date - lot.acquisition_date).days > tax_config.long_term_days
-            rate = tax_config.long_term_rate if long_term else tax_config.short_term_rate
-            tax_owed += max(lot_gain, 0.0) * rate
+            tax_owed += take * tax_ps
 
-            # Shrink the lot and the outstanding ask.
             lot.shares -= take
             remaining -= take
 
-            # Evict the lot once it's drained.
-            if lot.shares <= _SHARE_EPS:
-                self.employer_lots.pop(0)
+        # Evict any drained lots.
+        self.employer_lots = [lot for lot in self.employer_lots if lot.shares > _SHARE_EPS]
 
         return proceeds, tax_owed
 

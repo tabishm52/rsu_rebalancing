@@ -46,7 +46,7 @@ See [README.md](README.md) for the strategy and quickstart.
   - `config.py` — frozen dataclasses (`GrantSchedule`, `StrategyConfig`, `SimConfig`)
   - `data.py` — yfinance access, in-memory memoized
   - `calendar.py` — pure functions mapping grants/rebalances onto trading days
-  - `portfolio.py` — holdings, FIFO tax lots, the sell-to-fraction primitive
+  - `portfolio.py` — holdings, tax lots (sold lowest-tax-first), the sell-to-fraction primitive
   - `strategy.py` — the threshold rule + `HoldEverything` / `SellAllAtVest` baselines
   - `simulate.py` — the day-by-day engine; `run_backtest` is the top-level entry point
   - `metrics.py` — time-weighted returns and risk stats

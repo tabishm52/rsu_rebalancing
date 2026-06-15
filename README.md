@@ -104,7 +104,9 @@ a fair head-to-head number because every strategy receives the identical grant s
   period: `short_term_rate` for a lot sold within `long_term_days` (default `365`) of its
   vest, `long_term_rate` for one held longer. Each rate is a single effective figure (fold
   in any state/NIIT surcharge); the default leaves both at `0.0` (taxes off). Cost basis is
-  the vest-day price, so trimming soon after a grant realizes little gain.
+  the vest-day price, so trimming soon after a grant realizes little gain. Each rebalance
+  sells the lowest-tax lots first (minimizing realized tax for the shares sold); with taxes
+  off this is just FIFO.
 
 `GrantSchedule`: `annual_dollars`, `start_year`, `end_year`, and optional
 `grant_month`/`grant_day` (default first trading day on/after March 1).

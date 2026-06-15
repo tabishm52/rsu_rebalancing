@@ -1,4 +1,4 @@
-"""Tests for portfolio bookkeeping, threshold sells, FIFO tax, and liquidation."""
+"""Tests for portfolio bookkeeping, threshold sells, min-tax lot selection, and liquidation."""
 
 import pandas as pd
 from pytest import approx
@@ -68,7 +68,7 @@ def test_sell_to_fraction_noop_when_below_target():
     assert trade is None
 
 
-def test_fifo_tax_on_realized_gain():
+def test_tax_on_realized_gain():
     pf = Portfolio()
     pf.add_grant(DATE, dollars=10_000, employer_price=10.0)  # 1000 shares, basis $10
 
@@ -92,13 +92,13 @@ def test_fifo_tax_on_realized_gain():
     assert pf.employer_shares == approx(500)
 
 
-def test_fifo_tax_across_multiple_lots():
+def test_min_tax_sells_lower_gain_lot_first():
     pf = Portfolio()
     pf.add_grant(DATE, dollars=10_000, employer_price=10.0)  # lot 1: 1000 sh @ $10
     pf.add_grant(DATE, dollars=20_000, employer_price=20.0)  # lot 2: 1000 sh @ $20
 
     # At $20, the position is worth $40k. Trim to 25% -> sell $30k = 1500 shares,
-    # which spans lot 1 entirely (1000 sh) plus 500 sh of lot 2.
+    # which spans lot 2 entirely (1000 sh) plus 500 sh of lot 1.
     trade = pf.sell_employer_to_fraction(
         DATE,
         target_fraction=0.25,
@@ -109,14 +109,14 @@ def test_fifo_tax_across_multiple_lots():
 
     assert trade is not None
     assert trade.gross_value == approx(30_000)
-    # FIFO: gain is realized against the oldest lot's $10 basis first.
-    # lot 1: 1000 * ($20-$10) = $10,000; lot 2: 500 * ($20-$20) = $0. Tax = 20% * $10k.
-    # (Under LIFO the gain would be only $5k and tax $1k, so this pins the ordering.)
-    assert trade.tax_paid == approx(2_000)
-    # The surviving lot is the newer $20-basis one, with 500 shares left.
+    # Min-tax: the zero-gain $20 lot sells first (no tax), then 500 sh of the $10 lot.
+    # lot 2: 1000 * ($20-$20) = $0; lot 1: 500 * ($20-$10) = $5,000. Tax = 20% * $5k.
+    # (Under FIFO the gain would be $10k and tax $2k, so this pins the ordering.)
+    assert trade.tax_paid == approx(1_000)
+    # The surviving lot is the older $10-basis one, with 500 shares left.
     assert pf.employer_shares == approx(500)
     assert len(pf.employer_lots) == 1
-    assert pf.employer_lots[0].cost_per_share == 20.0
+    assert pf.employer_lots[0].cost_per_share == 10.0
     assert pf.employer_lots[0].shares == approx(500)
 
 
@@ -192,3 +192,77 @@ def test_mixed_holding_periods_taxed_per_lot():
     # lot 1: 1000 * ($30-$10) = $20,000 @ 20% = $4,000.
     # lot 2: 500 * ($30-$20) = $5,000 @ 40% = $2,000.
     assert trade.tax_paid == approx(6_000)
+
+
+def test_min_tax_orders_by_rate_not_just_basis():
+    pf = Portfolio()
+    pf.add_grant(DATE, dollars=10_000, employer_price=10.0)  # lot 1: 1000 sh @ $10 (old)
+    later = DATE + pd.Timedelta(days=400)
+    pf.add_grant(later, dollars=18_000, employer_price=18.0)  # lot 2: 1000 sh @ $18 (new)
+
+    # Sell on a day that is long-term for lot 1 but short-term for lot 2. Sell 500 sh.
+    # lot 1 (lower basis, but long-term): ($20-$10) * 0.20 = $2.00/sh tax.
+    # lot 2 (higher basis, but short-term): ($20-$18) * 0.40 = $0.80/sh tax.
+    # Rate, not basis, makes lot 2 cheaper to sell, so min-tax drains it first.
+    # Position is $40k; trim to 75% -> sell $10k = 500 sh.
+    sale_date = later + pd.Timedelta(days=100)
+    trade = pf.sell_employer_to_fraction(
+        sale_date,
+        target_fraction=0.75,
+        employer_price=20.0,
+        index_price=20.0,
+        tax_config=TaxConfig(short_term_rate=0.40, long_term_rate=0.20),
+    )
+
+    assert trade is not None
+    # 500 sh from lot 2: 500 * $0.80 = $400. The older, lower-basis lot is untouched.
+    assert trade.tax_paid == approx(400)
+    assert pf.employer_lots[0].cost_per_share == 10.0
+    assert pf.employer_lots[0].shares == approx(1000)
+
+
+def test_min_tax_prefers_fresh_grant_with_near_zero_gain():
+    pf = Portfolio()
+    pf.add_grant(DATE, dollars=10_000, employer_price=10.0)  # old lot: 1000 sh @ $10
+    # The common real flow: a fresh grant vests, then a rebalance lands days later. The
+    # fresh lot is short-term (higher rate) but has barely moved, so its per-share tax is
+    # ~0 and min-tax drains it first -- ahead of the old, deeply-appreciated lot.
+    grant_day = DATE + pd.Timedelta(days=400)
+    pf.add_grant(grant_day, dollars=30_000, employer_price=30.0)  # fresh lot: 1000 sh @ $30
+
+    # Sell 3 days after the fresh grant at its grant price (fresh gain = $0, short-term);
+    # the old lot is long-term with a $20/sh gain. Position is $60k; trim to 75% -> sell
+    # $15k = 500 sh.
+    sale_date = grant_day + pd.Timedelta(days=3)
+    trade = pf.sell_employer_to_fraction(
+        sale_date,
+        target_fraction=0.75,
+        employer_price=30.0,
+        index_price=30.0,
+        tax_config=TaxConfig(short_term_rate=0.40, long_term_rate=0.20),
+    )
+
+    assert trade is not None
+    # All 500 sh come from the fresh, zero-gain lot, so no tax despite the short-term rate.
+    assert trade.tax_paid == approx(0.0)
+    assert pf.employer_lots[0].cost_per_share == 10.0  # the old lot is untouched
+    assert pf.employer_lots[0].shares == approx(1000)
+
+
+def test_no_tax_devolves_to_fifo():
+    pf = Portfolio()
+    pf.add_grant(DATE, dollars=10_000, employer_price=10.0)  # lot 1: 1000 sh @ $10 (old)
+    pf.add_grant(DATE, dollars=20_000, employer_price=20.0)  # lot 2: 1000 sh @ $20 (new)
+
+    # With taxes off every lot ties at zero tax, so the stable sort preserves acquisition
+    # order: the partial sell drains the oldest lot first, exactly like FIFO.
+    no_tax = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)
+    trade = pf.sell_employer_to_fraction(
+        DATE, target_fraction=0.75, employer_price=20.0, index_price=20.0, tax_config=no_tax
+    )
+
+    assert trade is not None
+    # Position is $40k; trim to 75% -> sell $10k = 500 sh, all from the oldest lot.
+    assert pf.employer_lots[0].cost_per_share == 10.0
+    assert pf.employer_lots[0].shares == approx(500)
+    assert pf.employer_lots[1].shares == approx(1000)
