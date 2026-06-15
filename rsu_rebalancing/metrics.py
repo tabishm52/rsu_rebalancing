@@ -10,6 +10,7 @@ number because every strategy receives the identical grant stream.
 
 import numpy as np
 import pandas as pd
+import quantstats as qs
 
 from .simulate import SimResult
 
@@ -35,33 +36,57 @@ def time_weighted_returns(values: pd.Series, contributions: pd.Series) -> pd.Ser
 
 
 def growth_of_one(returns: pd.Series) -> pd.Series:
-    """Cumulative growth of $1 invested, given a daily return series."""
+    """Cumulative growth of $1 invested, given a daily return series.
+
+    Args:
+        returns: A daily return series.
+
+    Returns:
+        The curve ``(1 + returns).cumprod()``. Note it starts at ``1 + returns[0]``,
+        with no leading 1.0 baseline.
+    """
     return (1.0 + returns).cumprod()
 
 
 def annualized_return(returns: pd.Series) -> float:
-    """Geometric annualized (CAGR-equivalent) time-weighted return."""
+    """Geometric annualized (CAGR-equivalent) time-weighted return.
+
+    Args:
+        returns: Daily time-weighted returns.
+
+    Returns:
+        The CAGR, annualized at 252 trading days per year, or NaN if ``returns`` is empty.
+    """
     if returns.empty:
         return float("nan")
-    total_growth = float((1.0 + returns).to_numpy().prod())
-    if total_growth <= 0.0:
-        return float("nan")
-    years = len(returns) / TRADING_DAYS_PER_YEAR
-    return total_growth ** (1.0 / years) - 1.0
+    return float(qs.stats.cagr(returns, periods=TRADING_DAYS_PER_YEAR))
 
 
 def annualized_volatility(returns: pd.Series) -> float:
-    """Annualized standard deviation of daily returns."""
-    return float(returns.std(ddof=1) * np.sqrt(TRADING_DAYS_PER_YEAR))
+    """Annualized standard deviation of daily returns.
+
+    Args:
+        returns: Daily time-weighted returns.
+
+    Returns:
+        The sample standard deviation (``ddof=1``) scaled by ``sqrt(252)``.
+    """
+    return float(qs.stats.volatility(returns, periods=TRADING_DAYS_PER_YEAR, annualize=True))
 
 
 def max_drawdown(returns: pd.Series) -> float:
-    """Largest peak-to-trough decline of the growth curve (a negative number)."""
-    curve = growth_of_one(returns)
-    if curve.empty:
+    """Largest peak-to-trough decline, measured from initial capital (a negative number).
+
+    Args:
+        returns: Daily time-weighted returns. Must carry a ``DatetimeIndex``, as the
+            series from :func:`time_weighted_returns` does.
+
+    Returns:
+        The maximum drawdown as a negative fraction, or NaN if ``returns`` is empty.
+    """
+    if returns.empty:
         return float("nan")
-    drawdown = curve / curve.cummax() - 1.0
-    return float(drawdown.min())
+    return float(qs.stats.max_drawdown(returns))
 
 
 def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
@@ -74,10 +99,21 @@ def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
     Returns:
         The Sharpe ratio, or NaN if volatility is zero.
     """
-    vol = annualized_volatility(returns)
-    if vol == 0.0:
-        return float("nan")
-    return (annualized_return(returns) - risk_free_rate) / vol
+    if annualized_volatility(returns) == 0.0:
+        return float("nan")  # qs.stats.sharpe yields inf here; we report NaN instead
+    return float(qs.stats.sharpe(returns, rf=risk_free_rate, periods=TRADING_DAYS_PER_YEAR))
+
+
+def _contributions_from_trades(trades: pd.DataFrame, index: pd.Index) -> pd.Series:
+    """Daily external contributions, recovered from the trade log.
+
+    Grants are the only external inflow; rebalances move money internally and tax is a
+    cost, not a withdrawal. So contributions are the grant rows' gross value, summed per
+    day and aligned to ``index``.
+    """
+    grants = trades.loc[trades["kind"] == "grant", ["date", "gross_value"]]
+    by_day = grants.groupby("date")["gross_value"].sum()
+    return by_day.reindex(index, fill_value=0.0)
 
 
 def summarize(result: SimResult, risk_free_rate: float = 0.0) -> pd.Series:
@@ -90,11 +126,12 @@ def summarize(result: SimResult, risk_free_rate: float = 0.0) -> pd.Series:
     Returns:
         A Series of labelled metrics, suitable as one column of a comparison table.
     """
-    returns = time_weighted_returns(result.values, result.contributions)
+    contributions = _contributions_from_trades(result.trades, result.values.index)
+    returns = time_weighted_returns(result.values, contributions)
     return pd.Series(
         {
             "Final value": float(result.values.iloc[-1]),
-            "Total contributed": float(result.contributions.sum()),
+            "Total contributed": float(contributions.sum()),
             "Ann. return (TWR)": annualized_return(returns),
             "Ann. volatility": annualized_volatility(returns),
             "Max drawdown": max_drawdown(returns),

@@ -5,6 +5,7 @@ import pandas as pd
 from pytest import approx
 
 from rsu_rebalancing.metrics import (
+    annualized_return,
     annualized_volatility,
     growth_of_one,
     max_drawdown,
@@ -39,10 +40,29 @@ def test_growth_of_one_compounds():
 
 def test_max_drawdown_is_largest_peak_to_trough():
     # Up 20%, then down to 0.84 of peak (a 30% drawdown), then partial recovery.
-    returns = pd.Series([0.20, -0.30, 0.10])
+    returns = pd.Series([0.20, -0.30, 0.10], index=DATES[:3])
 
     # Peak growth = 1.20; trough = 1.20 * 0.70 = 0.84 -> drawdown = 0.84/1.20 - 1 = -0.30.
     assert max_drawdown(returns) == approx(-0.30)
+
+
+def test_max_drawdown_counts_decline_from_the_start():
+    # A window that opens by falling: the trough is below the 1.0 starting baseline,
+    # so the drawdown is measured from initial capital, not the first day's value.
+    returns = pd.Series([-0.10, -0.05, 0.03], index=DATES[:3])
+
+    # Curve = [0.90, 0.855, 0.881]; trough 0.855 vs baseline 1.0 -> 0.855 - 1 = -0.145.
+    assert max_drawdown(returns) == approx(-0.145)
+
+
+def test_annualized_return_annualizes_by_252():
+    # A constant daily return compounds to (1 + r) ** 252 - 1 once annualized,
+    # independent of the sample length (here a quarter's worth of days).
+    daily = 0.002
+    returns = pd.Series(daily, index=pd.bdate_range("2020-01-01", periods=63))
+    expected = (1 + daily) ** 252 - 1
+
+    assert annualized_return(returns) == approx(expected)
 
 
 def test_annualized_volatility_scales_by_sqrt_252():
