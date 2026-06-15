@@ -115,6 +115,11 @@ def run_backtest(
         threshold strategy's result is always present under its threshold-labelled key.
     """
     prices = get_price_frame([strategy.employer_ticker, strategy.index_ticker], sim.start, sim.end)
+    # Trim the leading window before every ticker is trading: a ticker that IPO'd after
+    # sim.start has NaNs that ffill can't backfill, which would corrupt valuations. After
+    # get_price_frame's ffill the only NaNs left are leading, so dropna trims just those.
+    prices = prices.dropna()
+
     trading_days = pd.DatetimeIndex(prices.index)
 
     grants = grant_trade_dates(trading_days, schedule)
