@@ -14,7 +14,4 @@ __pycache__/
 # uv
 uv.lock
 
-# Optional local price cache (pointed to by RSU_REBALANCING_CACHE_DIR)
-cache/
-data/
 __marimo__/

@@ -1,36 +1,23 @@
 """Historical price access via yfinance.
 
 Prices are fetched lazily and memoized in-memory for the session, so changing
-unrelated parameters in the notebook does not re-hit the network. On-disk caching
-is optional: set ``RSU_REBALANCING_CACHE_DIR`` (e.g. in a ``.env`` file) to persist
-fetched series as parquet between sessions. The disk cache is keyed by ticker and
-date range and is never auto-refreshed -- delete the file (or directory) to refetch.
+unrelated parameters in the notebook does not re-hit the network.
 """
 
-import os
 from functools import lru_cache
-from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
-from dotenv import load_dotenv
-
-load_dotenv()
-
-CACHE_DIR_ENV = "RSU_REBALANCING_CACHE_DIR"
 
 
-def _cache_path(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> Path | None:
-    """Return the parquet cache path for this query, or None if caching is disabled."""
-    cache_dir = os.environ.get(CACHE_DIR_ENV)
-    if not cache_dir:
-        return None
-    name = f"{ticker.upper()}_{start:%Y%m%d}_{end:%Y%m%d}.parquet"
-    return Path(cache_dir).expanduser() / name
+@lru_cache(maxsize=64)
+def _get_prices_cached(ticker: str, start_iso: str, end_iso: str) -> pd.Series:
+    """Fetch split/dividend-adjusted close prices for a single ticker, memoized.
 
-
-def _download(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.Series:
-    """Fetch split/dividend-adjusted close prices for a single ticker from yfinance."""
+    Keyed by hashable ISO date strings (see :func:`get_prices`).
+    """
+    start = pd.Timestamp(start_iso)
+    end = pd.Timestamp(end_iso)
     frame = yf.Ticker(ticker).history(start=start, end=end, auto_adjust=True)
     if frame.empty:
         raise ValueError(
@@ -42,24 +29,6 @@ def _download(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.Series:
     close.index = close.index.tz_localize(None).normalize()
     close.name = ticker.upper()
     return close
-
-
-@lru_cache(maxsize=64)
-def _get_prices_cached(ticker: str, start_iso: str, end_iso: str) -> pd.Series:
-    """Memoized core: keyed by hashable ISO date strings (see :func:`get_prices`)."""
-    start = pd.Timestamp(start_iso)
-    end = pd.Timestamp(end_iso)
-
-    path = _cache_path(ticker, start, end)
-    if path is not None and path.exists():
-        return pd.read_parquet(path).iloc[:, 0]
-
-    series = _download(ticker, start, end)
-
-    if path is not None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        series.to_frame().to_parquet(path)
-    return series
 
 
 def get_prices(

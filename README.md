@@ -114,10 +114,6 @@ Prices come from [yfinance](https://github.com/ranaroussi/yfinance) (adjusted cl
 splits and dividends are handled). Fetches are memoized in-memory for the session, so
 moving a slider in the notebook doesn't re-hit the network.
 
-On-disk caching is optional. Copy `.env.example` to `.env` and set
-`RSU_REBALANCING_CACHE_DIR` to a folder to persist fetched series as parquet between
-sessions. The disk cache is never auto-refreshed — delete files to refetch newer data.
-
 ## Development
 
 ```bash

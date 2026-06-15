@@ -12,10 +12,8 @@ dependencies = [
     "pandas",
     "yfinance",
     "marimo",
-    "python-dotenv",
     "matplotlib",
     "seaborn",
-    "pyarrow",
 ]
 
 [project.optional-dependencies]

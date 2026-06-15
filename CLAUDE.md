@@ -43,7 +43,7 @@ Flat package (no `src/`):
 
 - `rsu_rebalancing/` — the library
   - `config.py` — frozen dataclasses (`GrantSchedule`, `StrategyConfig`, `SimConfig`)
-  - `data.py` — yfinance access, in-memory memoized, optional disk cache via env var
+  - `data.py` — yfinance access, in-memory memoized
   - `calendar.py` — pure functions mapping grants/rebalances onto trading days
   - `portfolio.py` — holdings, FIFO tax lots, the sell-to-fraction primitive
   - `strategy.py` — the threshold rule + `HoldEverything` / `SellAllAtVest` baselines
@@ -75,8 +75,7 @@ uv run marimo edit notebooks/rebalance_sim.py
   fraction sits slightly above the target by design — keep this intentional.
 - **Tests must not hit the network.** Use synthetic `bdate_range` days and hand-built
   price frames; call `run_rule` (not `run_backtest`) so no fetch happens.
-- **Data is fetched live by default.** Set `RSU_REBALANCING_CACHE_DIR` to cache to disk;
-  the cache is never auto-refreshed — delete files to refetch.
+- **Data is fetched live** and memoized in-memory for the session only.
 
 ### Commit messages
 
