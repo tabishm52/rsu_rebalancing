@@ -67,22 +67,39 @@ def _(mo):
 
 
 @app.cell
-def _(mo):
+def _(StrategyConfig, mo):
+    # Defaults come from the config dataclasses (single source of truth); the notebook
+    # only owns UI presentation (widget type, ranges, percent units).
     employer = mo.ui.text(value="AAPL", label="Employer ticker")
-    index = mo.ui.text(value="VTI", label="Index ticker")
+    index = mo.ui.text(value=StrategyConfig.index_ticker, label="Index ticker")
     start = mo.ui.text(value="2015-01-01", label="Start date")
     end = mo.ui.text(value="2024-12-31", label="End date")
     annual_dollars = mo.ui.number(
         value=100_000, start=1, stop=10_000_000, step=1_000, label="Annual grant $"
     )
     threshold = mo.ui.slider(
-        start=5, stop=100, value=33, step=1, label="Threshold %", show_value=True
+        start=5,
+        stop=100,
+        value=round(StrategyConfig.threshold * 100),
+        step=1,
+        label="Threshold %",
+        show_value=True,
     )
     rebalances = mo.ui.slider(
-        start=1, stop=3, value=2, step=1, label="Rebalances per quarter", show_value=True
+        start=1,
+        stop=3,
+        value=StrategyConfig.rebalances_per_quarter,
+        step=1,
+        label="Rebalances per quarter",
+        show_value=True,
     )
     tax_rate = mo.ui.slider(
-        start=0, stop=50, value=0, step=1, label="Capital-gains tax %", show_value=True
+        start=0,
+        stop=50,
+        value=round(StrategyConfig.capital_gains_rate * 100),
+        step=1,
+        label="Capital-gains tax %",
+        show_value=True,
     )
     risk_free = mo.ui.slider(
         start=0, stop=8, value=2, step=1, label="Risk-free % (for Sharpe)", show_value=True
