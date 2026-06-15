@@ -255,10 +255,18 @@ def _(comparison_table, mo, pd, results, sim_cfg):
 @app.cell
 def _(mo, results, threshold_name):
     trades = results[threshold_name].trades
+    display = trades.assign(
+        date=trades["date"].dt.date,
+        employer_shares=trades["employer_shares"].round(1),
+        employer_price=trades["employer_price"].round(2),
+        gross_value=trades["gross_value"].round(2),
+        tax_paid=trades["tax_paid"].round(2),
+        index_dollars_in=trades["index_dollars_in"].round(2),
+    )
     mo.vstack(
         [
             mo.md(f"### Trade log — {threshold_name}"),
-            mo.ui.table(trades, selection=None, pagination=True),
+            mo.ui.table(display, selection=None, pagination=True),
         ]
     )
     return
