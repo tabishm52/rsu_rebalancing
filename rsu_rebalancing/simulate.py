@@ -22,7 +22,9 @@ class SimResult:
 
     Attributes:
         name: Human-readable strategy name.
-        values: Daily total portfolio value, indexed by trading date.
+        values: Daily total portfolio value, indexed by trading date. May begin with
+            zero-value days before the first grant lands; ``metrics.time_weighted_returns``
+            neutralizes these, so they carry no spurious return.
         employer_fraction: Daily employer-stock share of total holdings.
         contributions: External cash added each day (grant dollars; 0 otherwise).
             Identical across strategies, but carried here so metrics are self-contained.
@@ -105,6 +107,11 @@ def run_backtest(
 ) -> dict[str, SimResult]:
     """Run the threshold strategy and both baselines over identical grants and prices.
 
+    :func:`~rsu_rebalancing.data.get_price_frame` trims the window to where every ticker
+    trades, so a ticker that IPO'd after ``sim.start`` shifts the start forward and any
+    grants nominally before it collapse onto its first trading day -- intentional, and
+    identical across strategies.
+
     Args:
         strategy: Strategy parameters (tickers, threshold, trade-day offsets, tax).
         schedule: The annual grant stream.
@@ -115,10 +122,6 @@ def run_backtest(
         threshold strategy's result is always present under its threshold-labelled key.
     """
     prices = get_price_frame([strategy.employer_ticker, strategy.index_ticker], sim.start, sim.end)
-    # Trim the leading window before every ticker is trading: a ticker that IPO'd after
-    # sim.start has NaNs that ffill can't backfill, which would corrupt valuations. After
-    # get_price_frame's ffill the only NaNs left are leading, so dropna trims just those.
-    prices = prices.dropna()
 
     trading_days = pd.DatetimeIndex(prices.index)
 

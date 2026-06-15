@@ -125,7 +125,7 @@ def test_get_price_frame_aligns_and_forward_fills_gaps(monkeypatch):
     assert frame.loc[pd.Timestamp("2020-01-03"), "BBB"] == 20.0
 
 
-def test_get_price_frame_keeps_leading_nans(monkeypatch):
+def test_get_price_frame_trims_leading_pre_ipo_window(monkeypatch):
     _patch_yf(
         monkeypatch,
         {
@@ -136,5 +136,7 @@ def test_get_price_frame_keeps_leading_nans(monkeypatch):
 
     frame = data.get_price_frame(["AAA", "BBB"], "2020-01-02", "2020-01-03")
 
-    # BBB started trading after the window opened; ffill cannot backfill the gap.
-    assert pd.isna(frame.loc[pd.Timestamp("2020-01-02"), "BBB"])
+    # BBB started trading after the window opened; ffill cannot backfill the leading gap,
+    # so the frame is trimmed to the first day both tickers trade.
+    assert frame.index[0] == pd.Timestamp("2020-01-03")
+    assert not frame.isna().to_numpy().any()

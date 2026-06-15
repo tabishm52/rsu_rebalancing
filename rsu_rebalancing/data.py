@@ -81,10 +81,11 @@ def get_price_frame(
 ) -> pd.DataFrame:
     """Return aligned adjusted close prices for several tickers.
 
-    Each ticker is fetched independently then aligned on the union of trading dates,
-    with gaps forward-filled so every column has a value on every row. Forward-fill
-    cannot fill *leading* gaps, so a ticker that started trading after ``start``
-    keeps NaNs until its first quote.
+    Each ticker is fetched independently then aligned on the union of trading dates, with
+    interior gaps forward-filled so every column has a value on every row. Forward-fill
+    cannot fill *leading* gaps, so the frame is trimmed to the first day on which every
+    ticker is trading: a ticker that IPO'd after ``start`` shifts the start forward. The
+    result is therefore free of NaNs and safe to value directly.
 
     Args:
         tickers: Symbols to fetch.
@@ -92,7 +93,8 @@ def get_price_frame(
         end: Last date to include (inclusive).
 
     Returns:
-        A DataFrame indexed by trading date with one column per ticker.
+        A DataFrame indexed by trading date with one column per ticker, beginning on the
+        first day all tickers are trading.
 
     Raises:
         ValueError: If any ticker returns no price data for the range.
@@ -100,4 +102,6 @@ def get_price_frame(
     columns = {t.upper(): get_prices(t, start, end) for t in tickers}
     frame = pd.DataFrame(columns)
 
-    return frame.sort_index().ffill().dropna(how="all")
+    # ffill fills interior gaps but not leading ones, so the only NaNs left are before a
+    # late-IPO ticker's first quote; dropna trims exactly that pre-IPO window.
+    return frame.sort_index().ffill().dropna()
