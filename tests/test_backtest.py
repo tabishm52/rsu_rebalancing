@@ -10,16 +10,20 @@ from pytest import approx
 
 from rsu_rebalancing import backtest
 from rsu_rebalancing.backtest import BacktestResult, PerfSeries
-from rsu_rebalancing.config import BacktestConfig, GrantSchedule, StrategyConfig
+from rsu_rebalancing.config import BacktestConfig, GrantConfig, StrategyConfig
 
 _DATES = pd.bdate_range("2020-01-01", "2020-12-31")
 _PRICES = pd.DataFrame({"EMP": 10.0, "IDX": 100.0}, index=_DATES)
+# Employer prices reaching back to the 2019 award, so it can be priced into shares.
+_AWARD_PRICES = pd.Series(10.0, index=pd.bdate_range("2019-01-01", "2020-12-31"), name="EMP")
 
 
 def _run_backtest(monkeypatch):
     monkeypatch.setattr(backtest, "get_price_frame", lambda *args, **kwargs: _PRICES)
+    monkeypatch.setattr(backtest, "get_prices", lambda *args, **kwargs: _AWARD_PRICES)
     strategy = StrategyConfig(employer_ticker="EMP", index_ticker="IDX", threshold=1 / 3)
-    schedule = GrantSchedule(annual_dollars=50_000, start_year=2020, end_year=2020)
+    # Award in 2019 vesting fully in 2020, so the grant stream is non-empty in the window.
+    schedule = GrantConfig(annual_dollars=50_000, start_year=2019, end_year=2019, vesting_years=1)
     backtest_cfg = BacktestConfig(start="2020-01-01", end="2020-12-31")
 
     return backtest.run_backtest(strategy, schedule, backtest_cfg)

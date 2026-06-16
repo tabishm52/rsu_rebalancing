@@ -8,8 +8,6 @@ without any network access.
 
 import pandas as pd
 
-from .config import GrantSchedule
-
 
 def first_trading_day_on_or_after(
     trading_days: pd.DatetimeIndex, date: pd.Timestamp
@@ -28,32 +26,6 @@ def first_trading_day_on_or_after(
         return None
 
     return trading_days[pos]
-
-
-def grant_trade_dates(
-    trading_days: pd.DatetimeIndex, schedule: GrantSchedule
-) -> dict[pd.Timestamp, float]:
-    """Snap each nominal grant date to a real trading day.
-
-    Args:
-        trading_days: Sorted index of available trading days.
-        schedule: The grant stream.
-
-    Returns:
-        A mapping from trading day to the dollar value granted that day. Grants whose
-        nominal date falls after the last trading day are dropped.
-    """
-    grants: dict[pd.Timestamp, float] = {}
-
-    for nominal in schedule.nominal_grant_dates():
-        day = first_trading_day_on_or_after(trading_days, nominal)
-        if day is None:
-            continue
-
-        # Two grants can snap to the same trading day; accumulate their dollars.
-        grants[day] = grants.get(day, 0.0) + schedule.annual_dollars
-
-    return grants
 
 
 def rebalance_trade_dates(

@@ -11,19 +11,25 @@ import pandas as pd
 
 
 @dataclass(frozen=True)
-class GrantSchedule:
-    """A stream of equal-dollar RSU grants, one per year on a fixed month/day.
+class GrantConfig:
+    """Parameters of an annual RSU award stream.
 
-    The dollar amount is the *grant value* on the vest date; the number of employer
-    shares it buys depends on the share price that day.
+    One award is granted each year; :func:`~rsu_rebalancing.vesting.build_vesting_schedule`
+    expands these parameters against prices into the shares vesting on each trading day.
+
+    Note: ``annual_dollars`` is the *after-tax* award value -- the value of the shares you
+    keep. Vest-time ordinary-income tax is paid by withholding a fraction of the vesting
+    shares (sell-to-cover), which just grosses the award down and doesn't affect the analysis.
 
     Attributes:
-        annual_dollars: Dollar value granted each year.
-        start_year: First calendar year to grant in (inclusive).
-        end_year: Last calendar year to grant in (inclusive).
-        grant_month: Month of the grant (1-12). Defaults to March.
-        grant_day: Day of month for the nominal grant date. The simulator snaps this
+        annual_dollars: After-tax value of each year's award (see above).
+        start_year: First calendar year to grant an award in (inclusive). Set this before
+            the backtest window to backfill awards whose vests land inside it.
+        end_year: Last calendar year to grant an award in (inclusive).
+        grant_month: Month of the award (1-12). Defaults to March.
+        grant_day: Day of month for the nominal award date. The simulator snaps this
             to the first trading day on or after it.
+        vesting_years: Number of equal annual tranches each award vests over (>= 1).
     """
 
     annual_dollars: float
@@ -31,6 +37,7 @@ class GrantSchedule:
     end_year: int
     grant_month: int = 3
     grant_day: int = 1
+    vesting_years: int = 4
 
     def __post_init__(self) -> None:
         """Validate parameter ranges."""
@@ -40,6 +47,8 @@ class GrantSchedule:
             raise ValueError(
                 f"start_year ({self.start_year}) must be <= end_year ({self.end_year})"
             )
+        if self.vesting_years < 1:
+            raise ValueError(f"vesting_years must be >= 1; got {self.vesting_years}")
         # Probe month/day against a non-leap year so the grant date is valid in every
         # year (this rejects Feb 29, which only some years would accept).
         try:
@@ -50,11 +59,20 @@ class GrantSchedule:
             ) from exc
 
     def nominal_grant_dates(self) -> list[pd.Timestamp]:
-        """Return the nominal (calendar) grant date for each year in the range."""
+        """Return the nominal (calendar) award date for each year, earliest first."""
         return [
             pd.Timestamp(year=year, month=self.grant_month, day=self.grant_day)
             for year in range(self.start_year, self.end_year + 1)
         ]
+
+    @property
+    def earliest_grant_date(self) -> pd.Timestamp:
+        """Nominal date of the first award.
+
+        Awards can predate the backtest window, so this is how far back employer prices
+        must be fetched to lock each award's share count at its award-date price.
+        """
+        return self.nominal_grant_dates()[0]
 
 
 @dataclass(frozen=True)

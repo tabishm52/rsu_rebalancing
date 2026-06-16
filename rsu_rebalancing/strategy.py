@@ -22,14 +22,14 @@ class TradingDay:
         date: The trading date.
         employer_price: Employer share price on this day.
         index_price: Index share price on this day.
-        grant_dollars: Dollars vesting today, or ``None`` if this is not a grant day.
+        grant_shares: Employer shares vesting today, or ``None`` if not a vest day.
         is_rebalance_day: Whether the rule may rebalance today.
     """
 
     date: pd.Timestamp
     employer_price: float
     index_price: float
-    grant_dollars: float | None
+    grant_shares: float | None
     is_rebalance_day: bool
 
 
@@ -74,8 +74,8 @@ class ThresholdRebalance:
         """Vest any grant, then trim to the threshold if past the band on a rebalance day."""
         trades: list[TradeRecord] = []
 
-        if day.grant_dollars is not None:
-            trades.append(portfolio.add_grant(day.date, day.grant_dollars, day.employer_price))
+        if day.grant_shares is not None:
+            trades.append(portfolio.add_grant(day.date, day.grant_shares, day.employer_price))
 
         if day.is_rebalance_day:
             fraction = portfolio.employer_fraction(day.employer_price, day.index_price)
@@ -104,9 +104,9 @@ class HoldEverything:
 
     def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
         """Vest any grant; never sell."""
-        if day.grant_dollars is None:
+        if day.grant_shares is None:
             return []
-        return [portfolio.add_grant(day.date, day.grant_dollars, day.employer_price)]
+        return [portfolio.add_grant(day.date, day.grant_shares, day.employer_price)]
 
 
 class SellAllAtVest:
@@ -128,10 +128,10 @@ class SellAllAtVest:
 
     def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
         """Vest any grant, then sell the entire employer position into the index."""
-        if day.grant_dollars is None:
+        if day.grant_shares is None:
             return []
 
-        trades = [portfolio.add_grant(day.date, day.grant_dollars, day.employer_price)]
+        trades = [portfolio.add_grant(day.date, day.grant_shares, day.employer_price)]
 
         trade = portfolio.sell_employer_to_fraction(
             day.date, 0.0, day.employer_price, day.index_price, self.tax_config

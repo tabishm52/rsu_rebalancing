@@ -122,7 +122,7 @@ def summarize(result: BacktestResult, risk_free_rate: float, after_tax: bool) ->
         {
             "Final portfolio value": float(result.market.values.iloc[-1]),
             "Liquidation value (net of tax)": float(result.net_of_tax.values.iloc[-1]),
-            "Total contributed": float(result.gross_grants.sum()),
+            "Total vested contributions": float(result.gross_grants.sum()),
             "Ann. return (TWR)": annualized_return(returns),
             "Ann. volatility": annualized_volatility(returns),
             "Max drawdown": max_drawdown(returns),

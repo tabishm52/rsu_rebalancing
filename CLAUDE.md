@@ -43,9 +43,10 @@ See [README.md](README.md) for the strategy and quickstart.
 ### Layout
 
 - `rsu_rebalancing/` — the library
-  - `config.py` — frozen dataclasses (`GrantSchedule`, `StrategyConfig`, `BacktestConfig`)
+  - `config.py` — frozen dataclasses (`GrantConfig`, `StrategyConfig`, `BacktestConfig`)
   - `data.py` — yfinance access, in-memory memoized
-  - `calendar.py` — pure functions mapping grants/rebalances onto trading days
+  - `calendar.py` — pure functions mapping rebalances onto trading days
+  - `vesting.py` — expands the award schedule into per-day vesting share counts
   - `portfolio.py` — holdings, tax lots (sold lowest-tax-first), the sell-to-fraction primitive
   - `strategy.py` — the threshold rule + `HoldEverything` / `SellAllAtVest` baselines
   - `backtest.py` — the day-by-day engine; `run_backtest` is the top-level entry point

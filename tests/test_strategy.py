@@ -18,7 +18,7 @@ PRICES = pd.DataFrame(
     index=DATES,
 )
 GRANT_DAY = DATES[1]
-GRANTS = {GRANT_DAY: 22_000.0}  # 2000 employer shares at $11
+GRANTS = {GRANT_DAY: 2000.0}  # 2000 employer shares, vesting at $11
 REBALANCE_DAY = DATES[5]  # employer = $15 here
 
 
@@ -70,7 +70,7 @@ def test_rebalance_is_noop_when_already_below_target():
     # the second rebalance day finds nothing to sell.
     dates = pd.bdate_range("2020-01-01", periods=4)
     prices = pd.DataFrame({"EMP": [10, 10, 5, 5], "IDX": [100] * 4}, index=dates)
-    grants = {dates[0]: 30_000.0}  # 3000 employer shares at $10
+    grants = {dates[0]: 3000.0}  # 3000 employer shares, vesting at $10
     rule = ThresholdRebalance(threshold=1 / 3, band=0.0)
 
     result = run_rule(prices, "EMP", "IDX", grants, [dates[1], dates[3]], rule)
@@ -88,7 +88,7 @@ def test_hysteresis_band_suppresses_a_trim_just_above_target():
     no_tax = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)
     dates = pd.bdate_range("2020-01-01", periods=4)
     prices = pd.DataFrame({"EMP": [10, 10, 10, 11.5], "IDX": [100] * 4}, index=dates)
-    grants = {dates[0]: 30_000.0}  # 3000 employer shares at $10
+    grants = {dates[0]: 3000.0}  # 3000 employer shares, vesting at $10
     rule = ThresholdRebalance(threshold=1 / 3, band=0.05, tax_config=no_tax)
 
     result = run_rule(prices, "EMP", "IDX", grants, [dates[1], dates[3]], rule)
@@ -105,7 +105,7 @@ def test_hysteresis_band_trims_once_target_is_breached():
     no_tax = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)
     dates = pd.bdate_range("2020-01-01", periods=4)
     prices = pd.DataFrame({"EMP": [10, 10, 10, 15], "IDX": [100] * 4}, index=dates)
-    grants = {dates[0]: 30_000.0}  # 3000 employer shares at $10
+    grants = {dates[0]: 3000.0}  # 3000 employer shares, vesting at $10
     rule = ThresholdRebalance(threshold=1 / 3, band=0.05, tax_config=no_tax)
 
     result = run_rule(prices, "EMP", "IDX", grants, [dates[1], dates[3]], rule)
@@ -148,7 +148,7 @@ def test_final_net_value_equals_gross_with_no_gain():
 # The flat $15 around the rebalance isolates the tax flow from any price move.
 _FLOW_DATES = pd.bdate_range("2020-01-01", periods=6)
 _FLOW_PRICES = pd.DataFrame({"EMP": [10, 10, 15, 15, 15, 18], "IDX": [100] * 6}, index=_FLOW_DATES)
-_FLOW_GRANTS = {_FLOW_DATES[1]: 20_000.0}  # 2000 shares at $10
+_FLOW_GRANTS = {_FLOW_DATES[1]: 2000.0}  # 2000 shares, vesting at $10
 _FLOW_REBALANCE = _FLOW_DATES[3]  # price flat at $15 across the trade
 
 
@@ -196,7 +196,7 @@ def test_net_basis_strips_short_to_long_term_drift():
     # jump is a tax-status flow, not performance, so the day's return is ~0.
     dates = pd.DatetimeIndex(["2020-01-01", "2020-12-31", "2021-01-01"])
     prices = pd.DataFrame({"EMP": [10.0, 15.0, 15.0], "IDX": [100.0] * 3}, index=dates)
-    grants = {dates[0]: 10_000.0}  # 1000 shares at $10, $5/share gain once at $15
+    grants = {dates[0]: 1000.0}  # 1000 sh, vesting at $10, $5/sh gain at $15
     tax = TaxConfig(short_term_rate=0.4, long_term_rate=0.2, long_term_days=365)
 
     result = run_rule(prices, "EMP", "IDX", grants, [], HoldEverything(), tax)

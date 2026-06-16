@@ -9,11 +9,12 @@ from dataclasses import asdict, dataclass, field
 
 import pandas as pd
 
-from .calendar import grant_trade_dates, rebalance_trade_dates
-from .config import BacktestConfig, GrantSchedule, StrategyConfig, TaxConfig
-from .data import get_price_frame
+from .calendar import rebalance_trade_dates
+from .config import BacktestConfig, GrantConfig, StrategyConfig, TaxConfig
+from .data import get_price_frame, get_prices
 from .portfolio import Portfolio
 from .strategy import HoldEverything, RebalanceRule, SellAllAtVest, ThresholdRebalance, TradingDay
+from .vesting import VestingSchedule, build_vesting_schedule
 
 
 def _empty_series() -> pd.Series:
@@ -66,9 +67,9 @@ class BacktestResult:
         """Gross grant dollars per day, recovered from the trade log.
 
         Grant rows' gross value, summed per day and aligned to ``market.values.index``
-        (zero-filled). This is the total-contributed figure for reporting -- distinct from
-        ``market.flows``, which also nets out tax paid. Recomputed on each access; cheap
-        over the in-memory log, and never stale.
+        (zero-filled). This is the total-vested-contributions figure for reporting --
+        distinct from ``market.flows``, which also nets out tax paid. Recomputed on each
+        access; cheap over the in-memory log, and never stale.
         """
         grants = self.trades.loc[self.trades["kind"] == "grant", ["date", "gross_value"]]
         by_day = grants.groupby("date")["gross_value"].sum()
@@ -79,7 +80,7 @@ def run_rule(
     prices: pd.DataFrame,
     employer_ticker: str,
     index_ticker: str,
-    grants: dict[pd.Timestamp, float],
+    vesting: VestingSchedule,
     rebalance_days: list[pd.Timestamp],
     rule: RebalanceRule,
     tax_config: TaxConfig | None = None,
@@ -90,7 +91,7 @@ def run_rule(
         prices: Aligned daily prices with one column per ticker.
         employer_ticker: Employer-stock column in ``prices`` (assumed upper-cased).
         index_ticker: Diversified-index column in ``prices`` (assumed upper-cased).
-        grants: Mapping of trading day to grant dollars.
+        vesting: The shares vesting on each trading day.
         rebalance_days: Trading days on which the rule may rebalance.
         rule: The strategy logic to apply each day.
         tax_config: Rates for the hypothetical end-of-run liquidation tax (the same rates
@@ -118,7 +119,7 @@ def run_rule(
     for date in prices.index:
         emp_price = float(employer.loc[date])
         idx_price = float(index.loc[date])
-        grant_dollars = grants.get(date)
+        grant_shares = vesting.get(date)
 
         # Compute portfolio value at today's prices before the step; the net-of-tax value
         # uses yesterday's date so a change from short- to long-term tax status is seen as a flow
@@ -131,7 +132,7 @@ def run_rule(
             date=date,
             employer_price=emp_price,
             index_price=idx_price,
-            grant_dollars=grant_dollars,
+            grant_shares=grant_shares,
             is_rebalance_day=date in rebalance_set,
         )
         records.extend(rule.step(portfolio, day))
@@ -167,24 +168,27 @@ def run_rule(
 
 def run_backtest(
     strategy: StrategyConfig,
-    schedule: GrantSchedule,
+    grant_config: GrantConfig,
     backtest: BacktestConfig,
 ) -> dict[str, BacktestResult]:
     """Run the threshold strategy and both baselines over identical grants and prices.
 
-    :func:`~rsu_rebalancing.data.get_price_frame` trims the window to where every ticker
-    trades, so a ticker that IPO'd after ``backtest.start`` shifts the start forward and any
-    grants nominally before it collapse onto its first trading day -- intentional, and
-    identical across strategies.
+    :func:`~rsu_rebalancing.data.get_price_frame` trims the simulation window to where both
+    tickers trade, so one that IPO'd after ``backtest.start`` shifts the start forward --
+    intentional, and identical across strategies.
 
     Args:
         strategy: Strategy parameters (tickers, threshold, trade-day offsets, tax).
-        schedule: The annual grant stream.
+        grant_config: The annual award stream and its vesting terms.
         backtest: The date window and risk-free rate.
 
     Returns:
         A dict keyed by strategy name, mapping to each :class:`BacktestResult`. The
         threshold strategy's result is always present under its threshold-labelled key.
+
+    Raises:
+        ValueError: If a grant predates the employer's price history (see
+            :func:`~rsu_rebalancing.vesting.build_vesting_schedule`).
     """
     prices = get_price_frame(
         [strategy.employer_ticker, strategy.index_ticker], backtest.start, backtest.end
@@ -192,7 +196,12 @@ def run_backtest(
 
     trading_days = pd.DatetimeIndex(prices.index)
 
-    grants = grant_trade_dates(trading_days, schedule)
+    # Awards can predate the window; fetch employer prices back to the earliest award so
+    # each award's share count can be locked at its award-date price.
+    award_prices = get_prices(
+        strategy.employer_ticker, grant_config.earliest_grant_date, backtest.end
+    )
+    vesting = build_vesting_schedule(grant_config, award_prices, trading_days)
     rebalance_days = rebalance_trade_dates(
         trading_days, strategy.rebalances_per_quarter, backtest.start, backtest.end
     )
@@ -207,7 +216,7 @@ def run_backtest(
             prices,
             strategy.employer_ticker,
             strategy.index_ticker,
-            grants,
+            vesting,
             rebalance_days,
             rule,
             strategy.tax_config,

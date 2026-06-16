@@ -22,7 +22,7 @@ def _():
 
     from rsu_rebalancing import (
         BacktestConfig,
-        GrantSchedule,
+        GrantConfig,
         StrategyConfig,
         TaxConfig,
         comparison_table,
@@ -34,7 +34,7 @@ def _():
     sns.set_theme()
     return (
         BacktestConfig,
-        GrantSchedule,
+        GrantConfig,
         StrategyConfig,
         TaxConfig,
         comparison_table,
@@ -52,10 +52,12 @@ def _(mo):
     mo.md("""
     # RSU threshold rebalancing — backtest
 
-    Each year a fixed-dollar grant of **employer stock** vests. Twice a quarter the
-    strategy trims employer stock back down to a **threshold** fraction of total
-    holdings, reinvesting the proceeds in a diversified **index**. Compare it against
-    *holding everything* and *selling everything at vest*.
+    Each year you receive a **grant** of **employer stock**: its dollar value is converted
+    to a fixed share count at the grant-date price, which then vests in equal annual
+    tranches over the following few years (so the *dollars* delivered at each vest float
+    with the stock). Twice a quarter the strategy trims employer stock back down to a
+    **threshold** fraction of total holdings, reinvesting the proceeds in a diversified
+    **index**. Compare it against *holding everything* and *selling everything at vest*.
     """)
     return
 
@@ -69,7 +71,7 @@ def _(mo):
 
 
 @app.cell
-def _(BacktestConfig, StrategyConfig, TaxConfig, mo):
+def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
     # Tuning and reporting defaults come from the config dataclasses (single source of
     # truth); the notebook owns UI presentation (widget type, ranges, percent units) and
     # seeds the required policy inputs (employer, grant size, dates, threshold), which the
@@ -80,6 +82,17 @@ def _(BacktestConfig, StrategyConfig, TaxConfig, mo):
     end = mo.ui.text(value="2024-12-31", label="End date")
     annual_dollars = mo.ui.number(
         value=100_000, start=0, stop=1_000_000, step=25_000, label="Annual grant $"
+    )
+    vesting_years = mo.ui.slider(
+        start=1,
+        stop=6,
+        value=GrantConfig.vesting_years,
+        step=1,
+        label="Vesting years",
+        show_value=True,
+    )
+    backfill = mo.ui.switch(
+        value=True, label="Backfill grants before window (mature employee, not new hire)"
     )
     threshold = mo.ui.slider(
         start=5,
@@ -140,7 +153,7 @@ def _(BacktestConfig, StrategyConfig, TaxConfig, mo):
         [
             mo.hstack([employer, index], justify="start"),
             mo.hstack([start, end], justify="start"),
-            annual_dollars,
+            mo.hstack([annual_dollars, vesting_years], justify="start"),
             threshold,
             taxes_on,
             after_tax_perf,
@@ -148,6 +161,7 @@ def _(BacktestConfig, StrategyConfig, TaxConfig, mo):
     )
     advanced = mo.vstack(
         [
+            backfill,
             mo.hstack([rebalances, rebalance_band], justify="start"),
             mo.hstack([short_term_tax, long_term_tax], justify="start"),
             mo.hstack([risk_free], justify="start"),
@@ -158,6 +172,7 @@ def _(BacktestConfig, StrategyConfig, TaxConfig, mo):
     return (
         after_tax_perf,
         annual_dollars,
+        backfill,
         employer,
         end,
         index,
@@ -169,6 +184,7 @@ def _(BacktestConfig, StrategyConfig, TaxConfig, mo):
         start,
         taxes_on,
         threshold,
+        vesting_years,
     )
 
 
@@ -183,11 +199,12 @@ def _(mo):
 @app.cell
 def _(
     BacktestConfig,
-    GrantSchedule,
+    GrantConfig,
     StrategyConfig,
     TaxConfig,
     after_tax_perf,
     annual_dollars,
+    backfill,
     employer,
     end,
     index,
@@ -202,6 +219,7 @@ def _(
     start,
     taxes_on,
     threshold,
+    vesting_years,
 ):
     start_ts = pd.Timestamp(start.value)
     end_ts = pd.Timestamp(end.value)
@@ -223,10 +241,15 @@ def _(
         rebalances_per_quarter=rebalances.value,
         tax_config=tax_config,
     )
-    schedule = GrantSchedule(
+    # Backfill makes grants begin vesting_years before the window so its first year opens
+    # at steady-state overlapping vests (a mature employee); otherwise the first grant lands
+    # at the window start (a new hire ramping up). Either way, pre-window vests are dropped.
+    grant_start_year = start_ts.year - (vesting_years.value if backfill.value else 0)
+    schedule = GrantConfig(
         annual_dollars=annual_dollars.value,
-        start_year=start_ts.year,
+        start_year=grant_start_year,
         end_year=end_ts.year,
+        vesting_years=vesting_years.value,
     )
     backtest_cfg = BacktestConfig(
         start=start_ts,
@@ -245,7 +268,7 @@ def _(
     mo.stop(error is not None, mo.md(f"⚠️ **Could not run:** {error}"))
     threshold_name = next(name for name in results if name.startswith("Threshold"))
     results
-    return results, backtest_cfg, strategy_cfg, threshold_name
+    return backtest_cfg, results, strategy_cfg, threshold_name
 
 
 @app.cell
@@ -277,7 +300,15 @@ def _(mo, plt, results, strategy_cfg, threshold_name):
 
 
 @app.cell
-def _(growth_of_one, mo, pd, plt, results, backtest_cfg, time_weighted_returns):
+def _(
+    backtest_cfg,
+    growth_of_one,
+    mo,
+    pd,
+    plt,
+    results,
+    time_weighted_returns,
+):
     after_tax = backtest_cfg.after_tax_performance
     perf = {name: (res.net_of_tax if after_tax else res.market) for name, res in results.items()}
     curves = {name: growth_of_one(time_weighted_returns(p)) for name, p in perf.items()}
@@ -296,7 +327,7 @@ def _(growth_of_one, mo, pd, plt, results, backtest_cfg, time_weighted_returns):
 
 
 @app.cell
-def _(comparison_table, mo, pd, results, backtest_cfg):
+def _(backtest_cfg, comparison_table, mo, pd, results):
     table = comparison_table(
         results,
         risk_free_rate=backtest_cfg.risk_free_rate,
@@ -306,7 +337,7 @@ def _(comparison_table, mo, pd, results, backtest_cfg):
     formatters = {
         "Final portfolio value": "${:,.0f}".format,
         "Liquidation value (net of tax)": "${:,.0f}".format,
-        "Total contributed": "${:,.0f}".format,
+        "Total vested contributions": "${:,.0f}".format,
         "Ann. return (TWR)": "{:.2%}".format,
         "Ann. volatility": "{:.2%}".format,
         "Max drawdown": "{:.2%}".format,

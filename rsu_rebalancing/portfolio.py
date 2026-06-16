@@ -100,9 +100,8 @@ class Portfolio:
             return 0.0
         return self.employer_value(employer_price) / total
 
-    def add_grant(self, date: pd.Timestamp, dollars: float, employer_price: float) -> TradeRecord:
-        """Vest ``dollars`` of employer stock at ``employer_price`` as a new lot."""
-        shares = dollars / employer_price
+    def add_grant(self, date: pd.Timestamp, shares: float, employer_price: float) -> TradeRecord:
+        """Vest ``shares`` of employer stock at ``employer_price`` as a new lot."""
         self.employer_lots.append(
             TaxLot(shares=shares, cost_per_share=employer_price, acquisition_date=date)
         )
@@ -111,7 +110,7 @@ class Portfolio:
             kind="grant",
             employer_shares=shares,
             employer_price=employer_price,
-            gross_value=dollars,
+            gross_value=shares * employer_price,
             tax_paid=0.0,
             index_dollars_in=0.0,
         )

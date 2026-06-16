@@ -14,8 +14,13 @@ favors clarity over cleverness.
 
 ## The strategy
 
-You receive a fixed-dollar grant of **employer stock** each year (it vests in March).
-Twice a quarter — shortly after the trading window opens and just before the next
+Each year you're granted an **award** of **employer stock**: its dollar value is fixed
+into a share count at the award-date price, and those shares then vest in equal annual
+tranches over the next few years (default four). Because the count is locked at award, the
+*dollars* delivered at each vest float with the share price — a stock that ran up since the
+award over-delivers, concentrating you further just as the rest of your employer holdings
+peak. Awards can be backfilled before the window so it opens with a mature, overlapping
+vesting stream. Twice a quarter — shortly after the trading window opens and just before the next
 blackout period — you check what fraction of your *total* stock holdings is in employer
 stock. If it exceeds a **threshold** (e.g., **1/3**), you sell the excess employer stock
 down to that threshold and buy a diversified **index** with the proceeds.
@@ -49,17 +54,17 @@ uv sync --extra dev
 uv run marimo edit notebooks/rsu_backtest.py
 ```
 
-Set the employer/index tickers, date range, annual grant, threshold, trade-day timing,
+Set the employer/index tickers, date range, annual award, vesting years, threshold, trade-day timing,
 and tax rate; the backtest re-runs reactively with charts (concentration over time,
 growth of $1) and a return/risk comparison table.
 
 ### From Python
 
 ```python
-from rsu_rebalancing import GrantSchedule, StrategyConfig, BacktestConfig, run_backtest, comparison_table
+from rsu_rebalancing import GrantConfig, StrategyConfig, BacktestConfig, run_backtest, comparison_table
 
 strategy = StrategyConfig(employer_ticker="AAPL", index_ticker="VTI", threshold=1/3)
-schedule = GrantSchedule(annual_dollars=100_000, start_year=2015, end_year=2023)
+schedule = GrantConfig(annual_dollars=100_000, start_year=2015, end_year=2023)
 backtest = BacktestConfig(start="2015-01-01", end="2024-12-31", risk_free_rate=0.02)
 
 results = run_backtest(strategy, schedule, backtest)
@@ -71,7 +76,7 @@ Illustrative output (AAPL vs VTI, $100k/yr, 2015–2024 — *not a recommendatio
 | Metric | Threshold 33% | Hold everything | Sell all at vest |
 | --- | ---: | ---: | ---: |
 | Final value | $2,741,009 | $4,843,469 | $2,019,094 |
-| Total contributed | $900,000 | $900,000 | $900,000 |
+| Total vested contributions | $900,000 | $900,000 | $900,000 |
 | Ann. return (TWR) | 16.4% | 24.3% | 12.2% |
 | Ann. volatility | 19.9% | 28.2% | 17.9% |
 | Max drawdown | −33.4% | −38.5% | −35.0% |
@@ -108,8 +113,10 @@ a fair head-to-head number because every strategy receives the identical grant s
   sells the lowest-tax lots first (minimizing realized tax for the shares sold); with taxes
   off this is just FIFO.
 
-`GrantSchedule`: `annual_dollars`, `start_year`, `end_year`, and optional
-`grant_month`/`grant_day` (default first trading day on/after March 1).
+`GrantConfig`: `annual_dollars` (the per-award value, priced into shares at the award
+date), `start_year`, `end_year` (the award/employment span — set `start_year` before the
+window to backfill), and optional `grant_month`/`grant_day` (default first trading day
+on/after March 1) and `vesting_years` (equal annual tranches per award, default `4`).
 
 `BacktestConfig`: `start`, `end`, `risk_free_rate` (for the Sharpe ratio).
 

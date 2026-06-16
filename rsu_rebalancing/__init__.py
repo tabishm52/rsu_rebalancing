@@ -1,17 +1,17 @@
 """rsu-rebalancing: backtest a one-way threshold rebalancing strategy for RSU comp.
 
 Public API:
-    - Configs: :class:`GrantSchedule`, :class:`StrategyConfig`, :class:`BacktestConfig`,
+    - Configs: :class:`GrantConfig`, :class:`StrategyConfig`, :class:`BacktestConfig`,
       :class:`TaxConfig`
     - Data: :func:`get_prices`, :func:`get_price_frame`
-    - Run: :func:`run_backtest`, :class:`BacktestResult`
+    - Run: :func:`run_backtest`, :func:`build_vesting_schedule`, :class:`BacktestResult`
     - Metrics: :func:`comparison_table`, :func:`summarize`, :func:`time_weighted_returns`,
       :func:`growth_of_one`, :func:`annualized_return`, :func:`annualized_volatility`,
       :func:`sharpe_ratio`, :func:`max_drawdown`
 """
 
 from .backtest import BacktestResult, run_backtest, run_rule
-from .config import BacktestConfig, GrantSchedule, StrategyConfig, TaxConfig
+from .config import BacktestConfig, GrantConfig, StrategyConfig, TaxConfig
 from .data import get_price_frame, get_prices
 from .metrics import (
     annualized_return,
@@ -24,18 +24,21 @@ from .metrics import (
     time_weighted_returns,
 )
 from .strategy import HoldEverything, SellAllAtVest, ThresholdRebalance
+from .vesting import VestingSchedule, build_vesting_schedule
 
 __all__ = [
     "BacktestConfig",
     "BacktestResult",
-    "GrantSchedule",
+    "GrantConfig",
     "HoldEverything",
     "SellAllAtVest",
     "StrategyConfig",
     "TaxConfig",
     "ThresholdRebalance",
+    "VestingSchedule",
     "annualized_return",
     "annualized_volatility",
+    "build_vesting_schedule",
     "comparison_table",
     "get_price_frame",
     "get_prices",
