@@ -55,35 +55,40 @@ class RebalanceRule(Protocol):
 class ThresholdRebalance:
     """Trim employer stock to a target fraction on each rebalance day."""
 
-    def __init__(self, threshold: float, tax_config: TaxConfig | None = None) -> None:
-        """Store the target fraction and tax rates.
+    def __init__(self, threshold: float, band: float, tax_config: TaxConfig | None = None) -> None:
+        """Store the target fraction, hysteresis band, and tax rates.
 
         Args:
             threshold: Target maximum employer fraction; rebalances trim down to this.
+            band: One-way hysteresis band, in fraction points. A rebalance fires only
+                once the employer fraction exceeds ``threshold + band``.
             tax_config: Capital-gains rates applied to realized gains; defaults to
                 :class:`TaxConfig`'s standard rates.
         """
         self.threshold = threshold
+        self.band = band
         self.tax_config = tax_config if tax_config is not None else TaxConfig()
         self.name = f"Threshold {threshold:.0%}"
 
     def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
-        """Vest any grant, then trim to the threshold if this is a rebalance day."""
+        """Vest any grant, then trim to the threshold if past the band on a rebalance day."""
         trades: list[TradeRecord] = []
 
         if day.grant_dollars is not None:
             trades.append(portfolio.add_grant(day.date, day.grant_dollars, day.employer_price))
 
         if day.is_rebalance_day:
-            trade = portfolio.sell_employer_to_fraction(
-                day.date,
-                self.threshold,
-                day.employer_price,
-                day.index_price,
-                self.tax_config,
-            )
-            if trade is not None:
-                trades.append(trade)
+            fraction = portfolio.employer_fraction(day.employer_price, day.index_price)
+            if fraction > self.threshold + self.band:
+                trade = portfolio.sell_employer_to_fraction(
+                    day.date,
+                    self.threshold,
+                    day.employer_price,
+                    day.index_price,
+                    self.tax_config,
+                )
+                if trade is not None:
+                    trades.append(trade)
 
         return trades
 

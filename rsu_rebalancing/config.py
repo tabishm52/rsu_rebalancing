@@ -103,6 +103,8 @@ class StrategyConfig:
         index_ticker: Symbol of the diversified fund that sale proceeds buy.
         threshold: Target maximum fraction of total holdings in employer stock
             (e.g. ``1/3``). Rebalances trim employer stock down to this fraction.
+        rebalance_band: One-way hysteresis band, in fraction points. A rebalance
+            fires only once the employer fraction exceeds ``threshold + rebalance_band``.
         rebalances_per_quarter: Number of evenly spaced rebalances to place in each
             quarter.
         tax_config: Capital-gains tax rates applied to realized gains.
@@ -111,6 +113,7 @@ class StrategyConfig:
     employer_ticker: str
     index_ticker: str = "VTI"
     threshold: float = 1.0 / 3.0
+    rebalance_band: float = 0.05
     rebalances_per_quarter: int = 2
     tax_config: TaxConfig = field(default_factory=TaxConfig)
 
@@ -120,6 +123,13 @@ class StrategyConfig:
         object.__setattr__(self, "index_ticker", self.index_ticker.upper())
         if not 0.0 < self.threshold <= 1.0:
             raise ValueError(f"threshold must be in (0, 1]; got {self.threshold}")
+        if self.rebalance_band < 0.0:
+            raise ValueError(f"rebalance_band must be >= 0; got {self.rebalance_band}")
+        if self.threshold + self.rebalance_band > 1.0:
+            raise ValueError(
+                f"threshold + rebalance_band must be <= 1; got "
+                f"{self.threshold} + {self.rebalance_band}"
+            )
         if self.rebalances_per_quarter < 1:
             raise ValueError(
                 f"rebalances_per_quarter must be >= 1; got {self.rebalances_per_quarter}"

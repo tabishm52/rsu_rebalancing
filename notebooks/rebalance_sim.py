@@ -95,6 +95,14 @@ def _(SimConfig, StrategyConfig, TaxConfig, mo):
         label="Rebalances per quarter",
         show_value=True,
     )
+    rebalance_band = mo.ui.slider(
+        start=0,
+        stop=10,
+        value=round(StrategyConfig.rebalance_band * 100),
+        step=1,
+        label="Rebalance band %",
+        show_value=True,
+    )
     taxes_on = mo.ui.switch(value=True, label="Apply capital-gains taxes")
     short_term_tax = mo.ui.slider(
         start=0,
@@ -133,7 +141,7 @@ def _(SimConfig, StrategyConfig, TaxConfig, mo):
     )
     advanced = mo.vstack(
         [
-            mo.hstack([rebalances], justify="start"),
+            mo.hstack([rebalances, rebalance_band], justify="start"),
             mo.hstack([short_term_tax, long_term_tax], justify="start"),
             mo.hstack([risk_free], justify="start"),
         ]
@@ -147,6 +155,7 @@ def _(SimConfig, StrategyConfig, TaxConfig, mo):
         end,
         index,
         long_term_tax,
+        rebalance_band,
         rebalances,
         risk_free,
         short_term_tax,
@@ -178,6 +187,7 @@ def _(
     long_term_tax,
     mo,
     pd,
+    rebalance_band,
     rebalances,
     risk_free,
     run_backtest,
@@ -202,6 +212,7 @@ def _(
         employer_ticker=employer.value,
         index_ticker=index.value,
         threshold=threshold.value / 100.0,
+        rebalance_band=rebalance_band.value / 100.0,
         rebalances_per_quarter=rebalances.value,
         tax_config=tax_config,
     )

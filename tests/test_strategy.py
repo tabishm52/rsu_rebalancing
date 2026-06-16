@@ -43,7 +43,7 @@ def test_sell_all_at_vest_holds_no_employer_after_grant():
 def test_threshold_trims_to_target_on_rebalance_day():
     # No tax, so the pre-tax-sized trim lands exactly on target.
     no_tax = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)
-    rule = ThresholdRebalance(threshold=1 / 3, tax_config=no_tax)
+    rule = ThresholdRebalance(threshold=1 / 3, band=0.0, tax_config=no_tax)
 
     result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], rule)
 
@@ -55,7 +55,7 @@ def test_threshold_trims_to_target_on_rebalance_day():
 
 
 def test_tax_leaves_employer_fraction_above_target():
-    rule = ThresholdRebalance(threshold=1 / 3, tax_config=TaxConfig(short_term_rate=0.2))
+    rule = ThresholdRebalance(threshold=1 / 3, band=0.0, tax_config=TaxConfig(short_term_rate=0.2))
 
     result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], rule)
 
@@ -71,7 +71,7 @@ def test_rebalance_is_noop_when_already_below_target():
     dates = pd.bdate_range("2020-01-01", periods=4)
     prices = pd.DataFrame({"EMP": [10, 10, 5, 5], "IDX": [100] * 4}, index=dates)
     grants = {dates[0]: 30_000.0}  # 3000 employer shares at $10
-    rule = ThresholdRebalance(threshold=1 / 3)
+    rule = ThresholdRebalance(threshold=1 / 3, band=0.0)
 
     result = run_rule(prices, "EMP", "IDX", grants, [dates[1], dates[3]], rule)
 
@@ -81,8 +81,42 @@ def test_rebalance_is_noop_when_already_below_target():
     assert result.employer_fraction.loc[dates[3]] < 1 / 3
 
 
+def test_hysteresis_band_suppresses_a_trim_just_above_target():
+    # No tax, so the first trim lands employer exactly on 1/3; the price then rises just
+    # enough to push the fraction to ~0.365 -- above target but inside the 0.05 band -- so
+    # the second rebalance day leaves it alone.
+    no_tax = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)
+    dates = pd.bdate_range("2020-01-01", periods=4)
+    prices = pd.DataFrame({"EMP": [10, 10, 10, 11.5], "IDX": [100] * 4}, index=dates)
+    grants = {dates[0]: 30_000.0}  # 3000 employer shares at $10
+    rule = ThresholdRebalance(threshold=1 / 3, band=0.05, tax_config=no_tax)
+
+    result = run_rule(prices, "EMP", "IDX", grants, [dates[1], dates[3]], rule)
+
+    # Only the first rebalance fires; the second sits inside the band and is suppressed.
+    assert (result.trades["kind"] == "rebalance").sum() == 1
+    assert result.employer_fraction.loc[dates[3]] == approx(11.5 / 31.5)
+    assert 1 / 3 < result.employer_fraction.loc[dates[3]] <= 1 / 3 + 0.05
+
+
+def test_hysteresis_band_trims_once_target_is_breached():
+    # Same setup, but the price rises far enough (fraction ~0.43) to clear the band, so the
+    # second rebalance day fires and trims back down to the target.
+    no_tax = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)
+    dates = pd.bdate_range("2020-01-01", periods=4)
+    prices = pd.DataFrame({"EMP": [10, 10, 10, 15], "IDX": [100] * 4}, index=dates)
+    grants = {dates[0]: 30_000.0}  # 3000 employer shares at $10
+    rule = ThresholdRebalance(threshold=1 / 3, band=0.05, tax_config=no_tax)
+
+    result = run_rule(prices, "EMP", "IDX", grants, [dates[1], dates[3]], rule)
+
+    # Both rebalances fire; the second trims back to the target.
+    assert (result.trades["kind"] == "rebalance").sum() == 2
+    assert result.employer_fraction.loc[dates[3]] == approx(1 / 3)
+
+
 def test_grant_vests_before_rebalancing_on_a_shared_day():
-    rule = ThresholdRebalance(threshold=1 / 3)
+    rule = ThresholdRebalance(threshold=1 / 3, band=0.0)
 
     result = run_rule(PRICES, "EMP", "IDX", GRANTS, [GRANT_DAY], rule)
 
@@ -122,7 +156,7 @@ def test_realized_tax_is_a_flow_not_a_return():
     # A rebalance realizes gains and pays tax while the price is flat. Tax leaving the
     # portfolio is a withdrawal, so the day's time-weighted return is ~0 -- not a loss the
     # size of the tax.
-    rule = ThresholdRebalance(threshold=1 / 3, tax_config=TaxConfig(short_term_rate=0.2))
+    rule = ThresholdRebalance(threshold=1 / 3, band=0.0, tax_config=TaxConfig(short_term_rate=0.2))
 
     result = run_rule(_FLOW_PRICES, "EMP", "IDX", _FLOW_GRANTS, [_FLOW_REBALANCE], rule)
     returns = time_weighted_returns(result.market)
@@ -132,7 +166,7 @@ def test_realized_tax_is_a_flow_not_a_return():
 
 
 def test_grant_is_a_flow_and_price_move_is_a_return():
-    rule = ThresholdRebalance(threshold=1 / 3, tax_config=TaxConfig(short_term_rate=0.2))
+    rule = ThresholdRebalance(threshold=1 / 3, band=0.0, tax_config=TaxConfig(short_term_rate=0.2))
 
     result = run_rule(_FLOW_PRICES, "EMP", "IDX", _FLOW_GRANTS, [_FLOW_REBALANCE], rule)
     returns = time_weighted_returns(result.market)
@@ -149,7 +183,7 @@ def test_net_basis_rebalance_is_neutral():
     # realized-tax rate and the liquidation mark must match (as run_backtest guarantees),
     # so pass the one config to both the rule and the net valuation.
     tax = TaxConfig(short_term_rate=0.2)
-    rule = ThresholdRebalance(threshold=1 / 3, tax_config=tax)
+    rule = ThresholdRebalance(threshold=1 / 3, band=0.0, tax_config=tax)
 
     result = run_rule(_FLOW_PRICES, "EMP", "IDX", _FLOW_GRANTS, [_FLOW_REBALANCE], rule, tax)
 

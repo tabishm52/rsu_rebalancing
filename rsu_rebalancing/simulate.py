@@ -196,7 +196,7 @@ def run_backtest(
     )
 
     rules: list[RebalanceRule] = [
-        ThresholdRebalance(strategy.threshold, strategy.tax_config),
+        ThresholdRebalance(strategy.threshold, strategy.rebalance_band, strategy.tax_config),
         HoldEverything(),
         SellAllAtVest(strategy.tax_config),
     ]

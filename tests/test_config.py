@@ -72,6 +72,16 @@ def test_strategy_config_rejects_zero_rebalances():
         StrategyConfig(employer_ticker="AAPL", rebalances_per_quarter=0)
 
 
+def test_strategy_config_rejects_negative_rebalance_band():
+    with pytest.raises(ValueError, match="rebalance_band must be >= 0"):
+        StrategyConfig(employer_ticker="AAPL", rebalance_band=-0.01)
+
+
+def test_strategy_config_rejects_band_pushing_trigger_above_one():
+    with pytest.raises(ValueError, match="threshold \\+ rebalance_band must be <= 1"):
+        StrategyConfig(employer_ticker="AAPL", threshold=0.8, rebalance_band=0.3)
+
+
 # --- TaxConfig -------------------------------------------------------------
 
 
