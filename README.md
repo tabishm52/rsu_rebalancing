@@ -105,18 +105,22 @@ a fair head-to-head number because every strategy receives the identical grant s
 - `threshold` — target max employer fraction (e.g. `1/3`).
 - `rebalances_per_quarter` — how many evenly spaced rebalances to place in each quarter
   (default `2`).
-- `tax_config` — a `TaxConfig` of capital-gains rates applied to realized gains, by holding
-  period: `short_term_rate` for a lot sold within `long_term_days` (default `365`) of its
-  vest, `long_term_rate` for one held longer. Each rate is a single effective figure (fold
-  in any state/NIIT surcharge); the default leaves both at `0.0` (taxes off). Cost basis is
-  the vest-day price, so trimming soon after a grant realizes little gain. Each rebalance
-  sells the lowest-tax lots first (minimizing realized tax for the shares sold); with taxes
-  off this is just FIFO.
+- `tax_config` — a `TaxConfig` of tax rates. Capital gains on realized employer-stock sales
+  are taxed by holding period: `short_term_rate` (default `0.48`) for a lot sold within
+  `long_term_days` (default `365`) of its vest, `long_term_rate` (default `0.28`) for one
+  held longer. Separately, `ordinary_income_rate` (default `0.443`) taxes each vest as
+  ordinary income via sell-to-cover (see `GrantConfig`). Each rate is a single effective
+  figure (fold in any state/NIIT surcharge); the defaults model a California single filer
+  (see the `TaxConfig` docstring for the breakdown). Cost basis is the vest-day price, so
+  trimming soon after a grant realizes little gain. Each rebalance sells the lowest-tax lots
+  first (minimizing realized tax for the shares sold); with cap-gains taxes off this is just
+  FIFO.
 
-`GrantConfig`: `annual_dollars` (the per-award value, priced into shares at the award
-date), `start_year`, `end_year` (the award/employment span — set `start_year` before the
-window to backfill), and optional `grant_month`/`grant_day` (default first trading day
-on/after March 1) and `vesting_years` (equal annual tranches per award, default `4`).
+`GrantConfig`: `annual_dollars` (the per-award **gross** value, priced into shares at the
+award date; vest-time withholding via `ordinary_income_rate` grosses the kept count down),
+`start_year`, `end_year` (the award/employment span — set `start_year` before the window to
+backfill), and optional `grant_month`/`grant_day` (default first trading day on/after
+March 1) and `vesting_years` (equal annual tranches per award, default `4`).
 
 `BacktestConfig`: `start`, `end`, `risk_free_rate` (for the Sharpe ratio).
 

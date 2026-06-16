@@ -66,10 +66,10 @@ class BacktestResult:
     def gross_grants(self) -> pd.Series:
         """Gross grant dollars per day, recovered from the trade log.
 
-        Grant rows' gross value, summed per day and aligned to ``market.values.index``
-        (zero-filled). This is the total-vested-contributions figure for reporting --
-        distinct from ``market.flows``, which also nets out tax paid. Recomputed on each
-        access; cheap over the in-memory log, and never stale.
+        The dollar value of the shares actually vested into the portfolio, summed per day
+        and aligned to ``market.values.index`` (zero-filled). This value reflects vest-time
+        withholding (sell-to-cover), but excludes any subsequent gains or losses. Recomputed
+        on each access.
         """
         grants = self.trades.loc[self.trades["kind"] == "grant", ["date", "gross_value"]]
         by_day = grants.groupby("date")["gross_value"].sum()
@@ -196,12 +196,12 @@ def run_backtest(
 
     trading_days = pd.DatetimeIndex(prices.index)
 
-    # Awards can predate the window; fetch employer prices back to the earliest award so
-    # each award's share count can be locked at its award-date price.
+    # Grants can predate the window; fetch employer prices back to the earliest grant so
+    # each grant's share count can be locked at its grant-date price.
     award_prices = get_prices(
         strategy.employer_ticker, grant_config.earliest_grant_date, backtest.end
     )
-    vesting = build_vesting_schedule(grant_config, award_prices, trading_days)
+    vesting = build_vesting_schedule(grant_config, award_prices, trading_days, strategy.tax_config)
     rebalance_days = rebalance_trade_dates(
         trading_days, strategy.rebalances_per_quarter, backtest.start, backtest.end
     )

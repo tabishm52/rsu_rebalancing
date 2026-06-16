@@ -81,7 +81,7 @@ def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
     start = mo.ui.text(value="2015-01-01", label="Start date")
     end = mo.ui.text(value="2024-12-31", label="End date")
     annual_dollars = mo.ui.number(
-        value=100_000, start=0, stop=1_000_000, step=25_000, label="Annual grant $"
+        value=100_000, start=0, stop=1_000_000, step=25_000, label="Annual grant $ (gross)"
     )
     vesting_years = mo.ui.slider(
         start=1,
@@ -118,7 +118,6 @@ def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
         label="Rebalance band %",
         show_value=True,
     )
-    taxes_on = mo.ui.switch(value=True, label="Apply capital-gains taxes")
     short_term_tax = mo.ui.slider(
         start=0,
         stop=60,
@@ -133,6 +132,15 @@ def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
         value=round(TaxConfig.long_term_rate * 100),
         step=1,
         label="Long-term cap-gains tax %",
+        show_value=True,
+    )
+    # Drives the sell-to-cover haircut on vesting shares (TaxConfig.ordinary_income_rate).
+    vest_withholding = mo.ui.slider(
+        start=0,
+        stop=60,
+        value=round(TaxConfig.ordinary_income_rate * 100),
+        step=1,
+        label="Vest withholding %",
         show_value=True,
     )
     risk_free = mo.ui.slider(
@@ -155,7 +163,6 @@ def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
             mo.hstack([start, end], justify="start"),
             mo.hstack([annual_dollars, vesting_years], justify="start"),
             threshold,
-            taxes_on,
             after_tax_perf,
         ]
     )
@@ -164,6 +171,7 @@ def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
             backfill,
             mo.hstack([rebalances, rebalance_band], justify="start"),
             mo.hstack([short_term_tax, long_term_tax], justify="start"),
+            mo.hstack([vest_withholding], justify="start"),
             mo.hstack([risk_free], justify="start"),
         ]
     )
@@ -182,8 +190,8 @@ def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
         risk_free,
         short_term_tax,
         start,
-        taxes_on,
         threshold,
+        vest_withholding,
         vesting_years,
     )
 
@@ -217,21 +225,20 @@ def _(
     run_backtest,
     short_term_tax,
     start,
-    taxes_on,
     threshold,
+    vest_withholding,
     vesting_years,
 ):
     start_ts = pd.Timestamp(start.value)
     end_ts = pd.Timestamp(end.value)
 
-    # The toggle gates the fine-tuned rates: off means a zero-rate (tax-free) backtest.
-    if taxes_on.value:
-        tax_config = TaxConfig(
-            short_term_rate=short_term_tax.value / 100.0,
-            long_term_rate=long_term_tax.value / 100.0,
-        )
-    else:
-        tax_config = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)
+    # The three rate sliders are the only tax control: drag them all to zero for a
+    # tax-free backtest.
+    tax_config = TaxConfig(
+        short_term_rate=short_term_tax.value / 100.0,
+        long_term_rate=long_term_tax.value / 100.0,
+        ordinary_income_rate=vest_withholding.value / 100.0,
+    )
 
     strategy_cfg = StrategyConfig(
         employer_ticker=employer.value,

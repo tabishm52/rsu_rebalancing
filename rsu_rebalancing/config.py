@@ -17,12 +17,8 @@ class GrantConfig:
     One award is granted each year; :func:`~rsu_rebalancing.vesting.build_vesting_schedule`
     expands these parameters against prices into the shares vesting on each trading day.
 
-    Note: ``annual_dollars`` is the *after-tax* award value -- the value of the shares you
-    keep. Vest-time ordinary-income tax is paid by withholding a fraction of the vesting
-    shares (sell-to-cover), which just grosses the award down and doesn't affect the analysis.
-
     Attributes:
-        annual_dollars: After-tax value of each year's award (see above).
+        annual_dollars: Gross value of each year's award.
         start_year: First calendar year to grant an award in (inclusive). Set this before
             the backtest window to backfill awards whose vests land inside it.
         end_year: Last calendar year to grant an award in (inclusive).
@@ -77,33 +73,35 @@ class GrantConfig:
 
 @dataclass(frozen=True)
 class TaxConfig:
-    """Capital-gains tax rates applied to realized employer-stock gains.
-
-    Gains are taxed by holding period: a lot sold within ``long_term_days`` of its vest
-    date is taxed at ``short_term_rate`` (ordinary income), and one held longer at the
-    lower ``long_term_rate``. Each rate is a single effective figure, so fold any state
-    or NIIT surcharge into it.
+    """Tax rates on RSU vest income and realized capital gains.
 
     The defaults model nominal marginal tax rates for a California single filer with AGI
     roughly between $260k and $375k (2024 brackets):
 
-    - ``short_term_rate = 0.48``: 35% federal ordinary income + 9.3% California +
+    - ``ordinary_income_rate = 0.443``: 35% federal ordinary income + 9.3% California.
+    - ``short_term_rate = 0.483``: 35% federal ordinary income + 9.3% California +
       3.8% net investment income tax.
-    - ``long_term_rate = 0.28``: 15% federal long-term + 9.3% California + 3.8% net
+    - ``long_term_rate = 0.281``: 15% federal long-term + 9.3% California + 3.8% net
       investment income tax.
 
     Attributes:
+        ordinary_income_rate: Rate on ordinary income, used for RSU vesting.
         short_term_rate: Rate on gains realized on lots held <= ``long_term_days``.
         long_term_rate: Rate on gains realized on lots held > ``long_term_days``.
         long_term_days: Holding-period boundary in days (US long-term is > 1 year).
     """
 
-    short_term_rate: float = 0.48
-    long_term_rate: float = 0.28
+    ordinary_income_rate: float = 0.443
+    short_term_rate: float = 0.483
+    long_term_rate: float = 0.281
     long_term_days: int = 365
 
     def __post_init__(self) -> None:
         """Validate the rate ranges and the holding-period boundary."""
+        if not 0.0 <= self.ordinary_income_rate < 1.0:
+            raise ValueError(
+                f"ordinary_income_rate must be in [0, 1); got {self.ordinary_income_rate}"
+            )
         if not 0.0 <= self.short_term_rate < 1.0:
             raise ValueError(f"short_term_rate must be in [0, 1); got {self.short_term_rate}")
         if not 0.0 <= self.long_term_rate < 1.0:

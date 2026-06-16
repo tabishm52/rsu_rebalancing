@@ -5,6 +5,11 @@ award-date price), then vest that fixed count in equal annual tranches over the 
 years. So a vest delivers a known number of shares whose dollar value floats with the
 price between award and vest -- the count, not the dollars, is locked.
 
+Each vest is also an ordinary-income event: tax is paid by selling a slice of the vesting
+shares (sell-to-cover), so the kept count is grossed down by ``ordinary_income_rate``. The
+vest price cancels (tax owed and the shares sold to pay it both scale with it), so this is a
+flat ``(1 - rate)`` haircut on the locked count.
+
 :func:`build_vesting_schedule` expands a :class:`~rsu_rebalancing.config.GrantConfig`
 against employer prices into that per-day share count. It is I/O-free (prices come in as an
 argument), so it is fully testable with synthetic series.
@@ -13,7 +18,7 @@ argument), so it is fully testable with synthetic series.
 import pandas as pd
 
 from .calendar import first_trading_day_on_or_after
-from .config import GrantConfig
+from .config import GrantConfig, TaxConfig
 
 # A resolved vesting schedule: a mapping from trading day to the employer shares vesting
 # that day. A plain dict; the alias just names the domain meaning at function boundaries.
@@ -29,15 +34,18 @@ def build_vesting_schedule(
     config: GrantConfig,
     employer_prices: pd.Series,
     window_days: pd.DatetimeIndex,
+    tax_config: TaxConfig | None = None,
 ) -> VestingSchedule:
     """Expand ``config`` into the employer shares vesting on each trading day.
 
     Each award's dollar value is converted to a share count at the award-date price, and
     that count is fixed; it then vests in equal annual tranches over the next
-    ``config.vesting_years``. Because the count is locked at award, the dollars delivered at
-    each vest float with the share price between award and vest. Awards may predate the
-    window (their award-date prices fetched from before it); vests landing before the window
-    are dropped, so a window can open at a steady state of overlapping awards.
+    ``config.vesting_years``. The kept count is grossed down by
+    ``tax_config.ordinary_income_rate`` for vest-time sell-to-cover withholding.
+
+    Awards may predate the window (their award-date prices fetched from before it); vests
+    landing before the window are dropped, so a window can open at a steady state of
+    overlapping awards.
 
     Args:
         config: The award stream parameters.
@@ -45,6 +53,8 @@ def build_vesting_schedule(
             dates (which may predate ``window_days``).
         window_days: Sorted trading days of the backtest window; each tranche is snapped
             onto these and dropped if it falls outside.
+        tax_config: Supplies ``ordinary_income_rate`` for the vest-time withholding haircut;
+            defaults to :class:`TaxConfig` (its default rate).
 
     Returns:
         A mapping from trading day to the shares vesting that day. Awards whose nominal date
@@ -57,8 +67,12 @@ def build_vesting_schedule(
     if len(window_days) == 0:
         return {}
 
+    if tax_config is None:
+        tax_config = TaxConfig()
+
     award_index = pd.DatetimeIndex(employer_prices.index)
     tranche_fraction = 1.0 / config.vesting_years
+    kept_fraction = 1.0 - tax_config.ordinary_income_rate
 
     shares_by_day: VestingSchedule = {}
     for award_nominal in config.nominal_grant_dates():
@@ -75,7 +89,7 @@ def build_vesting_schedule(
                 "the first trading day, or shorten the backfill."
             )
 
-        total_shares = config.annual_dollars / float(employer_prices.loc[award_day])
+        total_shares = config.annual_dollars / float(employer_prices.loc[award_day]) * kept_fraction
 
         for k in range(1, config.vesting_years + 1):
             vest_nominal = award_nominal + pd.DateOffset(years=k)

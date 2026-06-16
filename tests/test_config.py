@@ -89,6 +89,12 @@ def test_strategy_config_rejects_band_pushing_trigger_above_one():
 
 
 @pytest.mark.parametrize("rate", [-0.1, 1.0])
+def test_tax_config_rejects_ordinary_income_rate_out_of_range(rate):
+    with pytest.raises(ValueError, match="ordinary_income_rate must be in"):
+        TaxConfig(ordinary_income_rate=rate)
+
+
+@pytest.mark.parametrize("rate", [-0.1, 1.0])
 def test_tax_config_rejects_short_term_rate_out_of_range(rate):
     with pytest.raises(ValueError, match="short_term_rate must be in"):
         TaxConfig(short_term_rate=rate)
