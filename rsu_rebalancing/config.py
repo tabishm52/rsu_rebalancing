@@ -128,17 +128,20 @@ class StrategyConfig:
 
 @dataclass(frozen=True)
 class SimConfig:
-    """The simulation window and risk-free assumption.
+    """The simulation window and reporting assumptions (risk-free rate, performance basis).
 
     Attributes:
         start: First date of the backtest (inclusive).
         end: Last date of the backtest (inclusive).
         risk_free_rate: Annual risk-free rate used by the Sharpe ratio.
+        after_tax_performance: When True, return and risk metrics are measured on
+            net-of-tax liquidation value; when False, on raw market value.
     """
 
     start: pd.Timestamp
     end: pd.Timestamp
     risk_free_rate: float = 0.0
+    after_tax_performance: bool = False
 
     def __post_init__(self) -> None:
         """Normalize string/loose dates to tz-naive Timestamps and validate order."""

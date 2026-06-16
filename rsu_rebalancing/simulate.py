@@ -5,7 +5,7 @@ This ties together prices (:mod:`rsu_rebalancing.data`), the calendar
 (:mod:`rsu_rebalancing.strategy`) to produce a per-day value series and a trade log.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 import pandas as pd
 
@@ -16,54 +16,63 @@ from .portfolio import Portfolio
 from .strategy import HoldEverything, RebalanceRule, SellAllAtVest, ThresholdRebalance, TradingDay
 
 
+def _empty_series() -> pd.Series:
+    return pd.Series(dtype=float)
+
+
+@dataclass
+class PerfSeries:
+    """A performance basis: a daily value series paired with the flows to strip from it.
+
+    Time-weighted returns are ``(values - flows) / values.shift(1) - 1``, so the two must
+    travel together. A *flow* is a non-market change in value -- money in or out, or (on
+    the net basis) a tax-status change -- that is not investment performance.
+
+    Attributes:
+        values: Daily portfolio value on this basis (market or net-of-tax).
+        flows: Daily non-market change in ``values``, signed (inflow positive).
+    """
+
+    values: pd.Series = field(default_factory=_empty_series)
+    flows: pd.Series = field(default_factory=_empty_series)
+
+
 @dataclass
 class SimResult:
     """The output of one strategy run over the backtest window.
 
     Attributes:
         name: Human-readable strategy name.
-        values: Daily total portfolio value, indexed by trading date. May begin with
-            zero-value days before the first grant lands; ``metrics.time_weighted_returns``
-            neutralizes these, so they carry no spurious return.
+        market: Raw market-value basis. ``market.values`` may begin with zero-value days
+            before the first grant lands; ``metrics.time_weighted_returns`` neutralizes
+            these, so they carry no spurious return.
+        net_of_tax: Net-of-tax (liquidation-value) basis. Puts strategies that realized gains
+            along the way on an even footing with those carrying large unrealized gains,
+            and strips the short-to-long-term tax-status drift as a flow.
         employer_fraction: Daily employer-stock share of total holdings.
         trades: Audit log of every grant and sale, one row each.
         final_portfolio: The portfolio state at the end of the run.
-        final_net_value: After-tax value on the last day of the whole portfolio. Not a true
-            liquidation tax estimation, but used to put strategies that realized gains along
-            the way on an even footing with those carrying large unrealized gains.
     """
 
     name: str
-    values: pd.Series
-    employer_fraction: pd.Series
-    trades: pd.DataFrame
-    final_portfolio: Portfolio
-    final_net_value: float = 0.0
+    market: PerfSeries = field(default_factory=PerfSeries)
+    net_of_tax: PerfSeries = field(default_factory=PerfSeries)
+    employer_fraction: pd.Series = field(default_factory=_empty_series)
+    trades: pd.DataFrame = field(default_factory=pd.DataFrame)
+    final_portfolio: Portfolio = field(default_factory=Portfolio)
 
     @property
     def gross_grants(self) -> pd.Series:
         """Gross grant dollars per day, recovered from the trade log.
 
-        Grant rows' gross value, summed per day and aligned to ``values.index``
-        (zero-filled). This is the total-contributed figure for reporting; :attr:`flows`
-        is the cash-flow series the time-weighted return strips. Recomputed on each
-        access; cheap over the in-memory log, and never stale.
+        Grant rows' gross value, summed per day and aligned to ``market.values.index``
+        (zero-filled). This is the total-contributed figure for reporting -- distinct from
+        ``market.flows``, which also nets out tax paid. Recomputed on each access; cheap
+        over the in-memory log, and never stale.
         """
         grants = self.trades.loc[self.trades["kind"] == "grant", ["date", "gross_value"]]
         by_day = grants.groupby("date")["gross_value"].sum()
-        return by_day.reindex(self.values.index, fill_value=0.0)
-
-    @property
-    def flows(self) -> pd.Series:
-        """Net external cash flow per day, signed: grants in, taxes out.
-
-        Both are non-market movements the time-weighted return must remove: a grant
-        deposits money (``gross_value``, positive) and tax on a sale pays it out to a
-        third party (``tax_paid``, negative). Summed per day and aligned to
-        ``values.index``.
-        """
-        tax_by_day = self.trades.groupby("date")["tax_paid"].sum()
-        return self.gross_grants - tax_by_day.reindex(self.values.index, fill_value=0.0)
+        return by_day.reindex(self.market.values.index, fill_value=0.0)
 
 
 def run_rule(
@@ -99,14 +108,25 @@ def run_rule(
 
     portfolio = Portfolio()
     records = []
-    values: dict[pd.Timestamp, float] = {}
+    market_values: dict[pd.Timestamp, float] = {}
+    market_flows: dict[pd.Timestamp, float] = {}
+    net_values: dict[pd.Timestamp, float] = {}
+    net_flows: dict[pd.Timestamp, float] = {}
     fractions: dict[pd.Timestamp, float] = {}
+    prev_date: pd.Timestamp | None = None
 
     for date in prices.index:
         emp_price = float(employer.loc[date])
         idx_price = float(index.loc[date])
         grant_dollars = grants.get(date)
 
+        # Compute portfolio value at today's prices before the step; the net-of-tax value
+        # uses yesterday's date so a change from short- to long-term tax status is seen as a flow
+        ref_date = prev_date if prev_date is not None else date
+        market_before = portfolio.market_value(emp_price, idx_price)
+        net_before = portfolio.liquidation_value(emp_price, idx_price, ref_date, tax_config)
+
+        # Step the strategy one day forward: apply any grants or rebalance, mutating the portfolio
         day = TradingDay(
             date=date,
             employer_price=emp_price,
@@ -116,19 +136,32 @@ def run_rule(
         )
         records.extend(rule.step(portfolio, day))
 
-        values[date] = portfolio.total_value(emp_price, idx_price)
-        fractions[date] = portfolio.employer_fraction(emp_price, idx_price)
+        # Compute portfolio value after the step at today's prices
+        market_after = portfolio.market_value(emp_price, idx_price)
+        net_after = portfolio.liquidation_value(emp_price, idx_price, date, tax_config)
 
-    final_net_value = portfolio.net_liquidation_value(emp_price, idx_price, date, tax_config)
+        # Non-market flows = value after the step - value before the step
+        market_values[date] = market_after
+        market_flows[date] = market_after - market_before
+        net_values[date] = net_after
+        net_flows[date] = net_after - net_before
+        fractions[date] = portfolio.employer_fraction(emp_price, idx_price)
+        prev_date = date
 
     trades = pd.DataFrame([asdict(r) for r in records])
     return SimResult(
         name=rule.name,
-        values=pd.Series(values, name=rule.name),
+        market=PerfSeries(
+            values=pd.Series(market_values, name=rule.name),
+            flows=pd.Series(market_flows, name=rule.name),
+        ),
+        net_of_tax=PerfSeries(
+            values=pd.Series(net_values, name=rule.name),
+            flows=pd.Series(net_flows, name=rule.name),
+        ),
         employer_fraction=pd.Series(fractions, name=rule.name),
         trades=trades,
         final_portfolio=portfolio,
-        final_net_value=final_net_value,
     )
 
 

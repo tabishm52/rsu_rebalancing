@@ -16,6 +16,7 @@ from rsu_rebalancing.metrics import (
     sharpe_ratio,
     time_weighted_returns,
 )
+from rsu_rebalancing.simulate import PerfSeries
 
 DATES = pd.bdate_range("2020-01-01", periods=4)
 
@@ -24,9 +25,9 @@ def test_time_weighted_returns_strip_contributions():
     # Day 0: deposit 100. Day 1: grows to 110 (+10%). Day 2: deposit 100 -> 220.
     # Day 3: grows to 231 (+5% on 220). The day-2 deposit must NOT count as a gain.
     values = pd.Series([100.0, 110.0, 220.0, 231.0], index=DATES)
-    contributions = pd.Series([100.0, 0.0, 100.0, 0.0], index=DATES)
+    flows = pd.Series([100.0, 0.0, 100.0, 0.0], index=DATES)
 
-    returns = time_weighted_returns(values, contributions)
+    returns = time_weighted_returns(PerfSeries(values, flows))
 
     assert list(returns.index) == list(DATES[1:])
     assert returns.iloc[0] == approx(0.10)  # 110 / 100 - 1
@@ -38,9 +39,9 @@ def test_time_weighted_returns_scrub_divide_by_zero():
     # A prior value of 0 makes the return undefined: 0/0 -> NaN, x/0 -> inf. Both must
     # be scrubbed to 0.0 so an empty-then-funded portfolio doesn't poison the series.
     values = pd.Series([0.0, 100.0, 0.0, 50.0], index=DATES)
-    contributions = pd.Series([0.0, 100.0, 0.0, 0.0], index=DATES)
+    flows = pd.Series([0.0, 100.0, 0.0, 0.0], index=DATES)
 
-    returns = time_weighted_returns(values, contributions)
+    returns = time_weighted_returns(PerfSeries(values, flows))
 
     assert returns.iloc[0] == 0.0  # (100 - 100) / 0 -> NaN -> 0
     assert returns.iloc[1] == approx(-1.0)  # (0 - 0) / 100 - 1

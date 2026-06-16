@@ -10,8 +10,7 @@ from pytest import approx
 
 from rsu_rebalancing import simulate
 from rsu_rebalancing.config import GrantSchedule, SimConfig, StrategyConfig
-from rsu_rebalancing.portfolio import Portfolio
-from rsu_rebalancing.simulate import SimResult
+from rsu_rebalancing.simulate import PerfSeries, SimResult
 
 _DATES = pd.bdate_range("2020-01-01", "2020-12-31")
 _PRICES = pd.DataFrame({"EMP": 10.0, "IDX": 100.0}, index=_DATES)
@@ -42,8 +41,8 @@ def test_run_backtest_feeds_identical_grants_to_every_strategy(monkeypatch):
 
 def test_gross_grants_count_only_grants():
     # gross_grants is the "total contributed" reporting figure: only grant gross_value,
-    # summed per day and aligned (zero-filled) to values.index. Rebalances and tax are not
-    # contributions.
+    # summed per day and aligned (zero-filled) to market.values.index. Rebalances and tax
+    # are not contributions.
     trades = pd.DataFrame(
         {
             "kind": ["grant", "grant", "rebalance"],
@@ -54,10 +53,8 @@ def test_gross_grants_count_only_grants():
     )
     result = SimResult(
         name="x",
-        values=pd.Series(0.0, index=_DATES[:3]),
-        employer_fraction=pd.Series(0.0, index=_DATES[:3]),
+        market=PerfSeries(values=pd.Series(0.0, index=_DATES[:3])),
         trades=trades,
-        final_portfolio=Portfolio(),
     )
 
     grants = result.gross_grants
@@ -66,29 +63,3 @@ def test_gross_grants_count_only_grants():
     assert grants.iloc[0] == approx(150.0)  # two grants on day 0, summed
     assert grants.iloc[1] == 0.0  # rebalance is not a contribution
     assert grants.iloc[2] == 0.0  # no trades -> filled with 0
-
-
-def test_flows_net_grants_against_tax_paid():
-    # flows is the TWR cash flow: grants in, tax out. Tax is a withdrawal, not negative
-    # performance, so it is netted out of the daily flow.
-    trades = pd.DataFrame(
-        {
-            "kind": ["grant", "grant", "rebalance"],
-            "date": [_DATES[0], _DATES[0], _DATES[1]],
-            "gross_value": [100.0, 50.0, 200.0],
-            "tax_paid": [0.0, 0.0, 30.0],
-        }
-    )
-    result = SimResult(
-        name="x",
-        values=pd.Series(0.0, index=_DATES[:3]),
-        employer_fraction=pd.Series(0.0, index=_DATES[:3]),
-        trades=trades,
-        final_portfolio=Portfolio(),
-    )
-
-    flows = result.flows
-
-    assert flows.iloc[0] == approx(150.0)  # two grants on day 0
-    assert flows.iloc[1] == approx(-30.0)  # tax paid is an outflow
-    assert flows.iloc[2] == 0.0  # no trades -> 0

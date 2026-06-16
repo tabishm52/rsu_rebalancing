@@ -289,13 +289,13 @@ def test_liquidation_tax_spans_both_legs_holding_periods_and_losses():
     assert tax == approx(6_000)
 
 
-def test_net_liquidation_value_is_value_less_tax():
+def test_liquidation_value_is_market_value_less_tax():
     pf = Portfolio()
     pf.add_grant(DATE, dollars=10_000, employer_price=10.0)
     pf.buy_index(DATE, dollars=5_000, index_price=5.0)
 
     cfg = TaxConfig()
-    net = pf.net_liquidation_value(employer_price=20.0, index_price=10.0, date=DATE, tax_config=cfg)
+    net = pf.liquidation_value(employer_price=20.0, index_price=10.0, date=DATE, tax_config=cfg)
 
-    expected = pf.total_value(20.0, 10.0) - pf.liquidation_tax(20.0, 10.0, DATE, cfg)
+    expected = pf.market_value(20.0, 10.0) - pf.liquidation_tax(20.0, 10.0, DATE, cfg)
     assert net == approx(expected)

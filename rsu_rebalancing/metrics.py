@@ -12,27 +12,26 @@ import numpy as np
 import pandas as pd
 import quantstats as qs
 
-from .simulate import SimResult
+from .simulate import PerfSeries, SimResult
 
 TRADING_DAYS_PER_YEAR = 252
 
 
-def time_weighted_returns(values: pd.Series, contributions: pd.Series) -> pd.Series:
-    """Daily time-weighted returns, removing the effect of contributions.
+def time_weighted_returns(perf: PerfSeries) -> pd.Series:
+    """Daily time-weighted returns on a performance basis, removing the effect of flows.
 
-    The return for day *t* is ``(value_t - contribution_t) / value_{t-1} - 1`` so the
-    external cash flow on day *t* is not counted as performance. Flows are signed: a
-    grant (deposit) is positive, tax paid out (a withdrawal) is negative.
+    The return for day *t* is ``(value_t - flow_t) / value_{t-1} - 1`` so the external cash
+    flow on day *t* is not counted as performance. Flows are signed: a grant (deposit) is
+    positive, tax paid out (a withdrawal) is negative.
 
     Args:
-        values: Daily total portfolio value.
-        contributions: Net external cash flow each day, signed (aligned to ``values``).
+        perf: A performance basis (``values`` paired with the ``flows`` to strip).
 
     Returns:
         A Series of daily returns, starting from the second day.
     """
-    prev = values.shift(1)
-    returns = (values - contributions) / prev - 1.0
+    prev = perf.values.shift(1)
+    returns = (perf.values - perf.flows) / prev - 1.0
     return returns.iloc[1:].replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
 
@@ -105,21 +104,24 @@ def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
     return float(qs.stats.sharpe(returns, rf=risk_free_rate, periods=TRADING_DAYS_PER_YEAR))
 
 
-def summarize(result: SimResult, risk_free_rate: float = 0.0) -> pd.Series:
+def summarize(result: SimResult, risk_free_rate: float, after_tax: bool) -> pd.Series:
     """Build a one-row summary of return and risk metrics for a strategy.
 
     Args:
         result: A completed strategy run.
         risk_free_rate: Annual risk-free rate for the Sharpe ratio.
+        after_tax: Measure return and risk on the net-of-tax basis when True, else on the
+            raw market-value basis.
 
     Returns:
         A Series of labelled metrics, suitable as one column of a comparison table.
     """
-    returns = time_weighted_returns(result.values, result.flows)
+    perf = result.net_of_tax if after_tax else result.market
+    returns = time_weighted_returns(perf)
     return pd.Series(
         {
-            "Final portfolio value": float(result.values.iloc[-1]),
-            "Liquidation value (net of tax)": result.final_net_value,
+            "Final portfolio value": float(result.market.values.iloc[-1]),
+            "Liquidation value (net of tax)": float(result.net_of_tax.values.iloc[-1]),
             "Total contributed": float(result.gross_grants.sum()),
             "Ann. return (TWR)": annualized_return(returns),
             "Ann. volatility": annualized_volatility(returns),
@@ -131,8 +133,13 @@ def summarize(result: SimResult, risk_free_rate: float = 0.0) -> pd.Series:
     )
 
 
-def comparison_table(results: dict[str, SimResult], risk_free_rate: float = 0.0) -> pd.DataFrame:
+def comparison_table(
+    results: dict[str, SimResult], risk_free_rate: float, after_tax: bool
+) -> pd.DataFrame:
     """Stack per-strategy summaries into one comparison table (strategies as columns)."""
     return pd.DataFrame(
-        {name: summarize(result, risk_free_rate) for name, result in results.items()}
+        {
+            name: summarize(result, risk_free_rate, after_tax=after_tax)
+            for name, result in results.items()
+        }
     )

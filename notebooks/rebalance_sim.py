@@ -69,7 +69,7 @@ def _(mo):
 
 
 @app.cell
-def _(StrategyConfig, TaxConfig, mo):
+def _(SimConfig, StrategyConfig, TaxConfig, mo):
     # Defaults come from the config dataclasses (single source of truth); the notebook
     # only owns UI presentation (widget type, ranges, percent units).
     employer = mo.ui.text(value="AAPL", label="Employer ticker")
@@ -115,6 +115,9 @@ def _(StrategyConfig, TaxConfig, mo):
     risk_free = mo.ui.slider(
         start=0, stop=8, value=2, step=1, label="Risk-free % (for Sharpe)", show_value=True
     )
+    after_tax_perf = mo.ui.switch(
+        value=SimConfig.after_tax_performance, label="Measure performance after tax"
+    )
 
     # The everyday knobs sit up top; the fussy details (exact tax rates, risk-free) tuck
     # into a collapsed accordion so they're available without crowding the common path.
@@ -125,6 +128,7 @@ def _(StrategyConfig, TaxConfig, mo):
             annual_dollars,
             threshold,
             taxes_on,
+            after_tax_perf,
         ]
     )
     advanced = mo.vstack(
@@ -137,6 +141,7 @@ def _(StrategyConfig, TaxConfig, mo):
     controls = mo.vstack([general, mo.accordion({"Extra settings": advanced})])
     controls
     return (
+        after_tax_perf,
         annual_dollars,
         employer,
         end,
@@ -165,6 +170,7 @@ def _(
     SimConfig,
     StrategyConfig,
     TaxConfig,
+    after_tax_perf,
     annual_dollars,
     employer,
     end,
@@ -204,7 +210,12 @@ def _(
         start_year=start_ts.year,
         end_year=end_ts.year,
     )
-    sim_cfg = SimConfig(start=start_ts, end=end_ts, risk_free_rate=risk_free.value / 100.0)
+    sim_cfg = SimConfig(
+        start=start_ts,
+        end=end_ts,
+        risk_free_rate=risk_free.value / 100.0,
+        after_tax_performance=after_tax_perf.value,
+    )
 
     try:
         results = run_backtest(strategy_cfg, schedule, sim_cfg)
@@ -248,27 +259,31 @@ def _(mo, plt, results, strategy_cfg, threshold_name):
 
 
 @app.cell
-def _(growth_of_one, mo, pd, plt, results, time_weighted_returns):
-    curves = {
-        name: growth_of_one(time_weighted_returns(res.values, res.flows))
-        for name, res in results.items()
-    }
+def _(growth_of_one, mo, pd, plt, results, sim_cfg, time_weighted_returns):
+    after_tax = sim_cfg.after_tax_performance
+    perf = {name: (res.net_of_tax if after_tax else res.market) for name, res in results.items()}
+    curves = {name: growth_of_one(time_weighted_returns(p)) for name, p in perf.items()}
     growth_df = pd.DataFrame(curves)
 
+    _basis = "after-tax" if after_tax else "pre-tax"
     growth_fig, growth_ax = plt.subplots(figsize=(12, 5))
     (growth_df * 100).plot(ax=growth_ax)
     growth_ax.set_xlabel("Date")
-    growth_ax.set_ylabel("Index, start = 100 (time-weighted)")
+    growth_ax.set_ylabel(f"Index, start = 100 ({_basis}, time-weighted)")
     growth_ax.legend(title="strategy")
     growth_fig.tight_layout()
 
-    mo.vstack([mo.md("### Investment performance (external flows removed)"), growth_fig])
+    mo.vstack([mo.md(f"### Investment performance ({_basis}, external flows removed)"), growth_fig])
     return
 
 
 @app.cell
 def _(comparison_table, mo, pd, results, sim_cfg):
-    table = comparison_table(results, risk_free_rate=sim_cfg.risk_free_rate)
+    table = comparison_table(
+        results,
+        risk_free_rate=sim_cfg.risk_free_rate,
+        after_tax=sim_cfg.after_tax_performance,
+    )
 
     formatters = {
         "Final portfolio value": "${:,.0f}".format,
@@ -283,7 +298,10 @@ def _(comparison_table, mo, pd, results, sim_cfg):
     # Build an object-dtype frame of formatted strings (rows = metrics, cols = strategies).
     styled = pd.DataFrame({row: table.loc[row].map(fmt) for row, fmt in formatters.items()}).T
 
-    mo.vstack([mo.md("### Return & risk comparison"), mo.ui.table(styled, selection=None)])
+    _basis = "after-tax" if sim_cfg.after_tax_performance else "pre-tax"
+    mo.vstack(
+        [mo.md(f"### Return & risk comparison ({_basis})"), mo.ui.table(styled, selection=None)]
+    )
     return
 
 

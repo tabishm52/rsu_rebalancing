@@ -89,13 +89,13 @@ class Portfolio:
         """Market value of the index position at ``index_price``."""
         return self.index_shares * index_price
 
-    def total_value(self, employer_price: float, index_price: float) -> float:
+    def market_value(self, employer_price: float, index_price: float) -> float:
         """Combined market value of both positions."""
         return self.employer_value(employer_price) + self.index_value(index_price)
 
     def employer_fraction(self, employer_price: float, index_price: float) -> float:
         """Fraction of total holdings in employer stock (0 when the portfolio is empty)."""
-        total = self.total_value(employer_price, index_price)
+        total = self.market_value(employer_price, index_price)
         if total <= 0.0:
             return 0.0
         return self.employer_value(employer_price) / total
@@ -259,14 +259,18 @@ class Portfolio:
             for lot in self.index_lots
         )
 
-    def net_liquidation_value(
+    def liquidation_value(
         self,
         employer_price: float,
         index_price: float,
         date: pd.Timestamp,
         tax_config: TaxConfig,
     ) -> float:
-        """After-tax value if the whole portfolio were sold at the given prices on ``date``."""
-        return self.total_value(employer_price, index_price) - self.liquidation_tax(
+        """Value if the whole portfolio were sold at the given prices on ``date``, net of tax.
+
+        This is :meth:`market_value` less :meth:`liquidation_tax` -- what you would actually
+        keep after liquidating, as opposed to the gross market mark.
+        """
+        return self.market_value(employer_price, index_price) - self.liquidation_tax(
             employer_price, index_price, date, tax_config
         )
