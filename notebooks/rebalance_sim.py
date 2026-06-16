@@ -70,19 +70,21 @@ def _(mo):
 
 @app.cell
 def _(SimConfig, StrategyConfig, TaxConfig, mo):
-    # Defaults come from the config dataclasses (single source of truth); the notebook
-    # only owns UI presentation (widget type, ranges, percent units).
+    # Tuning and reporting defaults come from the config dataclasses (single source of
+    # truth); the notebook owns UI presentation (widget type, ranges, percent units) and
+    # seeds the required policy inputs (employer, grant size, dates, threshold), which the
+    # library deliberately refuses to default.
     employer = mo.ui.text(value="AAPL", label="Employer ticker")
     index = mo.ui.text(value=StrategyConfig.index_ticker, label="Index ticker")
     start = mo.ui.text(value="2015-01-01", label="Start date")
     end = mo.ui.text(value="2024-12-31", label="End date")
     annual_dollars = mo.ui.number(
-        value=100_000, start=1, stop=10_000_000, step=1_000, label="Annual grant $"
+        value=100_000, start=0, stop=1_000_000, step=25_000, label="Annual grant $"
     )
     threshold = mo.ui.slider(
         start=5,
         stop=100,
-        value=round(StrategyConfig.threshold * 100),
+        value=33,
         step=1,
         label="Threshold %",
         show_value=True,
@@ -121,7 +123,12 @@ def _(SimConfig, StrategyConfig, TaxConfig, mo):
         show_value=True,
     )
     risk_free = mo.ui.slider(
-        start=0, stop=8, value=2, step=1, label="Risk-free % (for Sharpe)", show_value=True
+        start=0,
+        stop=8,
+        value=round(SimConfig.risk_free_rate * 100),
+        step=1,
+        label="Risk-free % (for Sharpe)",
+        show_value=True,
     )
     after_tax_perf = mo.ui.switch(
         value=SimConfig.after_tax_performance, label="Measure performance after tax"

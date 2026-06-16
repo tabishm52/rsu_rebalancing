@@ -20,9 +20,9 @@ def test_grant_schedule_nominal_dates_one_per_year():
     ]
 
 
-def test_grant_schedule_rejects_non_positive_dollars():
-    with pytest.raises(ValueError, match="annual_dollars must be > 0"):
-        GrantSchedule(annual_dollars=0, start_year=2020, end_year=2021)
+def test_grant_schedule_rejects_negative_dollars():
+    with pytest.raises(ValueError, match="annual_dollars must be >= 0"):
+        GrantSchedule(annual_dollars=-1, start_year=2020, end_year=2021)
 
 
 def test_grant_schedule_rejects_inverted_year_range():
@@ -55,7 +55,7 @@ def test_grant_schedule_rejects_out_of_range_month():
 
 
 def test_strategy_config_upper_cases_tickers():
-    config = StrategyConfig(employer_ticker="aapl", index_ticker="vti")
+    config = StrategyConfig(employer_ticker="aapl", index_ticker="vti", threshold=1 / 3)
 
     assert config.employer_ticker == "AAPL"
     assert config.index_ticker == "VTI"
@@ -69,12 +69,12 @@ def test_strategy_config_rejects_threshold_out_of_range(threshold):
 
 def test_strategy_config_rejects_zero_rebalances():
     with pytest.raises(ValueError, match="rebalances_per_quarter must be >= 1"):
-        StrategyConfig(employer_ticker="AAPL", rebalances_per_quarter=0)
+        StrategyConfig(employer_ticker="AAPL", threshold=1 / 3, rebalances_per_quarter=0)
 
 
 def test_strategy_config_rejects_negative_rebalance_band():
     with pytest.raises(ValueError, match="rebalance_band must be >= 0"):
-        StrategyConfig(employer_ticker="AAPL", rebalance_band=-0.01)
+        StrategyConfig(employer_ticker="AAPL", threshold=1 / 3, rebalance_band=-0.01)
 
 
 def test_strategy_config_rejects_band_pushing_trigger_above_one():

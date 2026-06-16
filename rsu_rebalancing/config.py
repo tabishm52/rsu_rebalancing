@@ -34,8 +34,8 @@ class GrantSchedule:
 
     def __post_init__(self) -> None:
         """Validate parameter ranges."""
-        if self.annual_dollars <= 0.0:
-            raise ValueError(f"annual_dollars must be > 0; got {self.annual_dollars}")
+        if self.annual_dollars < 0.0:
+            raise ValueError(f"annual_dollars must be >= 0; got {self.annual_dollars}")
         if self.start_year > self.end_year:
             raise ValueError(
                 f"start_year ({self.start_year}) must be <= end_year ({self.end_year})"
@@ -100,9 +100,11 @@ class StrategyConfig:
 
     Attributes:
         employer_ticker: Symbol of the concentrated employer stock.
-        index_ticker: Symbol of the diversified fund that sale proceeds buy.
         threshold: Target maximum fraction of total holdings in employer stock
             (e.g. ``1/3``). Rebalances trim employer stock down to this fraction.
+            Required: the concentration target is a policy choice with no neutral
+            default, so the caller must state it.
+        index_ticker: Symbol of the diversified fund that sale proceeds buy.
         rebalance_band: One-way hysteresis band, in fraction points. A rebalance
             fires only once the employer fraction exceeds ``threshold + rebalance_band``.
         rebalances_per_quarter: Number of evenly spaced rebalances to place in each
@@ -111,8 +113,8 @@ class StrategyConfig:
     """
 
     employer_ticker: str
+    threshold: float
     index_ticker: str = "VTI"
-    threshold: float = 1.0 / 3.0
     rebalance_band: float = 0.05
     rebalances_per_quarter: int = 2
     tax_config: TaxConfig = field(default_factory=TaxConfig)
@@ -143,14 +145,15 @@ class SimConfig:
     Attributes:
         start: First date of the backtest (inclusive).
         end: Last date of the backtest (inclusive).
-        risk_free_rate: Annual risk-free rate used by the Sharpe ratio.
+        risk_free_rate: Annual risk-free rate used by the Sharpe ratio. Defaults to
+            0.02, roughly the average 3-month Treasury yield over 2015-2024.
         after_tax_performance: When True, return and risk metrics are measured on
             net-of-tax liquidation value; when False, on raw market value.
     """
 
     start: pd.Timestamp
     end: pd.Timestamp
-    risk_free_rate: float = 0.0
+    risk_free_rate: float = 0.02
     after_tax_performance: bool = False
 
     def __post_init__(self) -> None:
