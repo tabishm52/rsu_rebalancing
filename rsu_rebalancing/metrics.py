@@ -21,11 +21,12 @@ def time_weighted_returns(values: pd.Series, contributions: pd.Series) -> pd.Ser
     """Daily time-weighted returns, removing the effect of contributions.
 
     The return for day *t* is ``(value_t - contribution_t) / value_{t-1} - 1`` so the
-    deposit that lands on day *t* is not counted as a gain.
+    external cash flow on day *t* is not counted as performance. Flows are signed: a
+    grant (deposit) is positive, tax paid out (a withdrawal) is negative.
 
     Args:
         values: Daily total portfolio value.
-        contributions: External cash added each day (aligned to ``values``).
+        contributions: Net external cash flow each day, signed (aligned to ``values``).
 
     Returns:
         A Series of daily returns, starting from the second day.
@@ -114,13 +115,12 @@ def summarize(result: SimResult, risk_free_rate: float = 0.0) -> pd.Series:
     Returns:
         A Series of labelled metrics, suitable as one column of a comparison table.
     """
-    contributions = result.contributions
-    returns = time_weighted_returns(result.values, contributions)
+    returns = time_weighted_returns(result.values, result.flows)
     return pd.Series(
         {
             "Final portfolio value": float(result.values.iloc[-1]),
             "Liquidation value (net of tax)": result.final_net_value,
-            "Total contributed": float(contributions.sum()),
+            "Total contributed": float(result.gross_grants.sum()),
             "Ann. return (TWR)": annualized_return(returns),
             "Ann. volatility": annualized_volatility(returns),
             "Max drawdown": max_drawdown(returns),

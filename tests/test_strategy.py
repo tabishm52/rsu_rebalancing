@@ -4,6 +4,7 @@ import pandas as pd
 from pytest import approx
 
 from rsu_rebalancing.config import TaxConfig
+from rsu_rebalancing.metrics import time_weighted_returns
 from rsu_rebalancing.simulate import run_rule
 from rsu_rebalancing.strategy import HoldEverything, SellAllAtVest, ThresholdRebalance
 
@@ -107,3 +108,36 @@ def test_final_net_value_equals_gross_with_no_gain():
     result = run_rule(flat, "EMP", "IDX", GRANTS, [REBALANCE_DAY], HoldEverything())
 
     assert result.final_net_value == approx(result.values.iloc[-1])
+
+
+# Grant at $10, the price rises to $15 and holds across the rebalance, then ticks to $18.
+# The flat $15 around the rebalance isolates the tax flow from any price move.
+_FLOW_DATES = pd.bdate_range("2020-01-01", periods=6)
+_FLOW_PRICES = pd.DataFrame({"EMP": [10, 10, 15, 15, 15, 18], "IDX": [100] * 6}, index=_FLOW_DATES)
+_FLOW_GRANTS = {_FLOW_DATES[1]: 20_000.0}  # 2000 shares at $10
+_FLOW_REBALANCE = _FLOW_DATES[3]  # price flat at $15 across the trade
+
+
+def test_realized_tax_is_a_flow_not_a_return():
+    # A rebalance realizes gains and pays tax while the price is flat. Tax leaving the
+    # portfolio is a withdrawal, so the day's time-weighted return is ~0 -- not a loss the
+    # size of the tax.
+    rule = ThresholdRebalance(threshold=1 / 3, tax_config=TaxConfig(short_term_rate=0.2))
+
+    result = run_rule(_FLOW_PRICES, "EMP", "IDX", _FLOW_GRANTS, [_FLOW_REBALANCE], rule)
+    returns = time_weighted_returns(result.values, result.flows)
+
+    assert result.flows.loc[_FLOW_REBALANCE] == approx(-4000 / 3)  # = the tax paid, an outflow
+    assert returns.loc[_FLOW_REBALANCE] == approx(0.0, abs=1e-9)
+
+
+def test_grant_is_a_flow_and_price_move_is_a_return():
+    rule = ThresholdRebalance(threshold=1 / 3, tax_config=TaxConfig(short_term_rate=0.2))
+
+    result = run_rule(_FLOW_PRICES, "EMP", "IDX", _FLOW_GRANTS, [_FLOW_REBALANCE], rule)
+    returns = time_weighted_returns(result.values, result.flows)
+
+    # The grant is an inflow, not performance; a trade-free price move ($15 -> $18) is.
+    assert result.flows.loc[_FLOW_DATES[1]] == approx(20_000.0)
+    # $2,000 employer gain (666.67 sh x $3) over a prior value of $28,666.67 -> 3/43.
+    assert returns.loc[_FLOW_DATES[5]] == approx(3 / 43)

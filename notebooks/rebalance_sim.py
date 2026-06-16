@@ -250,7 +250,7 @@ def _(mo, plt, results, strategy_cfg, threshold_name):
 @app.cell
 def _(growth_of_one, mo, pd, plt, results, time_weighted_returns):
     curves = {
-        name: growth_of_one(time_weighted_returns(res.values, res.contributions))
+        name: growth_of_one(time_weighted_returns(res.values, res.flows))
         for name, res in results.items()
     }
     growth_df = pd.DataFrame(curves)
@@ -262,7 +262,7 @@ def _(growth_of_one, mo, pd, plt, results, time_weighted_returns):
     growth_ax.legend(title="strategy")
     growth_fig.tight_layout()
 
-    mo.vstack([mo.md("### Investment performance (contributions removed)"), growth_fig])
+    mo.vstack([mo.md("### Investment performance (external flows removed)"), growth_fig])
     return
 
 

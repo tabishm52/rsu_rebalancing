@@ -41,17 +41,29 @@ class SimResult:
     final_net_value: float = 0.0
 
     @property
-    def contributions(self) -> pd.Series:
-        """External inflows per day, recovered from the trade log.
+    def gross_grants(self) -> pd.Series:
+        """Gross grant dollars per day, recovered from the trade log.
 
-        Grants are the only inflow; rebalances move money internally and tax is a cost,
-        not a withdrawal. So contributions are the grant rows' gross value, summed per
-        day and aligned to ``values.index`` (zero-filled). Recomputed on each access;
-        cheap over the in-memory log, and never stale.
+        Grant rows' gross value, summed per day and aligned to ``values.index``
+        (zero-filled). This is the total-contributed figure for reporting; :attr:`flows`
+        is the cash-flow series the time-weighted return strips. Recomputed on each
+        access; cheap over the in-memory log, and never stale.
         """
         grants = self.trades.loc[self.trades["kind"] == "grant", ["date", "gross_value"]]
         by_day = grants.groupby("date")["gross_value"].sum()
         return by_day.reindex(self.values.index, fill_value=0.0)
+
+    @property
+    def flows(self) -> pd.Series:
+        """Net external cash flow per day, signed: grants in, taxes out.
+
+        Both are non-market movements the time-weighted return must remove: a grant
+        deposits money (``gross_value``, positive) and tax on a sale pays it out to a
+        third party (``tax_paid``, negative). Summed per day and aligned to
+        ``values.index``.
+        """
+        tax_by_day = self.trades.groupby("date")["tax_paid"].sum()
+        return self.gross_grants - tax_by_day.reindex(self.values.index, fill_value=0.0)
 
 
 def run_rule(
