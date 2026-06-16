@@ -14,7 +14,17 @@ app = marimo.App(width="medium")
 
 
 @app.cell
-def _():
+def _(mo):
+    mo.md("""
+    # Exploration scratchpad
+
+    A place to learn pandas financial idioms against real prices. Edit freely.
+    """)
+    return
+
+
+@app.cell
+def imports():
     import marimo as mo
     import matplotlib.pyplot as plt
     import pandas as pd
@@ -46,23 +56,13 @@ def _():
 @app.cell
 def _(mo):
     mo.md("""
-    # Exploration scratchpad
-
-    A place to learn pandas financial idioms against real prices. Edit freely.
-    """)
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md("""
     ## Controls
     """)
     return
 
 
-@app.cell
-def _(mo):
+@app.cell(hide_code=True)
+def controls(mo):
     ticker_a = mo.ui.text(value="AAPL", label="First ticker")
     ticker_b = mo.ui.text(value="VTI", label="Second ticker")
     start = mo.ui.text(value="2015-01-01", label="Start date")
@@ -87,7 +87,7 @@ def _(mo):
 
 
 @app.cell
-def _(end, get_price_frame, mo, start, ticker_a, ticker_b):
+def fetch_prices(end, get_price_frame, mo, start, ticker_a, ticker_b):
     # Two tickers, aligned on common trading days.
     try:
         prices = get_price_frame([ticker_a.value, ticker_b.value], start.value, end.value)
@@ -110,7 +110,7 @@ def _(mo):
 
 
 @app.cell
-def _(plt, prices):
+def growth_plot(mo, plt, prices):
     # Growth chart, rebased to 100 at the start date.
     fig, ax = plt.subplots(figsize=(12, 6))
     normalized = prices / prices.iloc[0]
@@ -119,7 +119,7 @@ def _(plt, prices):
     ax.set_ylabel("Index (start = 100)")
     ax.legend(title="ticker")
     fig.tight_layout()
-    fig
+    mo.mpl.interactive(fig)
     return
 
 
@@ -132,7 +132,7 @@ def _(mo):
 
 
 @app.cell
-def _(prices):
+def returns(prices):
     # Daily returns by hand -- the series the summary table below is built from.
     daily_returns = prices.pct_change().dropna()
     daily_returns
@@ -148,7 +148,7 @@ def _(mo):
 
 
 @app.cell
-def _(
+def headline_stats(
     annualized_return,
     annualized_volatility,
     daily_returns,
@@ -187,7 +187,7 @@ def _(mo):
 
 
 @app.cell
-def _(daily_returns, pd, qs):
+def tearsheet(daily_returns, pd, qs):
     tearsheet = pd.DataFrame(
         {
             col: qs.reports.metrics(daily_returns[col], mode="basic", display=False)["Strategy"]

@@ -14,7 +14,22 @@ app = marimo.App(width="medium")
 
 
 @app.cell
-def _():
+def _(mo):
+    mo.md("""
+    # RSU threshold rebalancing — backtest
+
+    Each year you receive a **grant** of **employer stock**: its dollar value is converted
+    to a fixed share count at the grant-date price, which then vests in equal annual
+    tranches over the following few years (so the *dollars* delivered at each vest float
+    with the stock). Twice a quarter the strategy trims employer stock back down to a
+    **threshold** fraction of total holdings, reinvesting the proceeds in a diversified
+    **index**. Compare it against *holding everything* and *selling everything at vest*.
+    """)
+    return
+
+
+@app.cell
+def imports():
     import marimo as mo
     import matplotlib.pyplot as plt
     import pandas as pd
@@ -50,28 +65,13 @@ def _():
 @app.cell
 def _(mo):
     mo.md("""
-    # RSU threshold rebalancing — backtest
-
-    Each year you receive a **grant** of **employer stock**: its dollar value is converted
-    to a fixed share count at the grant-date price, which then vests in equal annual
-    tranches over the following few years (so the *dollars* delivered at each vest float
-    with the stock). Twice a quarter the strategy trims employer stock back down to a
-    **threshold** fraction of total holdings, reinvesting the proceeds in a diversified
-    **index**. Compare it against *holding everything* and *selling everything at vest*.
-    """)
-    return
-
-
-@app.cell
-def _(mo):
-    mo.md("""
     ## Controls
     """)
     return
 
 
-@app.cell
-def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
+@app.cell(hide_code=True)
+def controls(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
     # Tuning and reporting defaults come from the config dataclasses (single source of
     # truth); the notebook owns UI presentation (widget type, ranges, percent units) and
     # seeds the required policy inputs (employer, grant size, dates, threshold), which the
@@ -81,7 +81,7 @@ def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
     start = mo.ui.text(value="2015-01-01", label="Start date")
     end = mo.ui.text(value="2024-12-31", label="End date")
     annual_dollars = mo.ui.number(
-        value=100_000, start=0, stop=1_000_000, step=25_000, label="Annual grant $ (gross)"
+        value=100_000, start=0, stop=1_000_000, step=25_000, label="Annual grant $"
     )
     vesting_years = mo.ui.slider(
         start=1,
@@ -115,7 +115,7 @@ def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
         stop=10,
         value=round(StrategyConfig.rebalance_band * 100),
         step=1,
-        label="Rebalance band %",
+        label="Hysteresis band %",
         show_value=True,
     )
     short_term_tax = mo.ui.slider(
@@ -152,7 +152,7 @@ def _(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
         show_value=True,
     )
     after_tax_perf = mo.ui.switch(
-        value=BacktestConfig.after_tax_performance, label="Measure performance after tax"
+        value=BacktestConfig.after_tax_performance, label="Analyze performance after tax"
     )
 
     # The everyday knobs sit up top; the fussy details (exact tax rates, risk-free) tuck
@@ -205,7 +205,7 @@ def _(mo):
 
 
 @app.cell
-def _(
+def backtest(
     BacktestConfig,
     GrantConfig,
     StrategyConfig,
@@ -287,7 +287,7 @@ def _(mo):
 
 
 @app.cell
-def _(mo, plt, results, strategy_cfg, threshold_name):
+def concentration_plot(mo, plt, results, strategy_cfg, threshold_name):
     frac = results[threshold_name].employer_fraction
 
     frac_fig, frac_ax = plt.subplots(figsize=(12, 5))
@@ -300,14 +300,14 @@ def _(mo, plt, results, strategy_cfg, threshold_name):
     mo.vstack(
         [
             mo.md("### Employer concentration (threshold strategy)"),
-            frac_fig,
+            mo.mpl.interactive(frac_fig),
         ]
     )
     return
 
 
 @app.cell
-def _(
+def performance_plot(
     backtest_cfg,
     growth_of_one,
     mo,
@@ -329,12 +329,17 @@ def _(
     growth_ax.legend(title="strategy")
     growth_fig.tight_layout()
 
-    mo.vstack([mo.md(f"### Investment performance ({_basis}, external flows removed)"), growth_fig])
+    mo.vstack(
+        [
+            mo.md(f"### Investment performance ({_basis}, external flows removed)"),
+            mo.mpl.interactive(growth_fig),
+        ]
+    )
     return
 
 
 @app.cell
-def _(backtest_cfg, comparison_table, mo, pd, results):
+def comparison(backtest_cfg, comparison_table, mo, pd, results):
     table = comparison_table(
         results,
         risk_free_rate=backtest_cfg.risk_free_rate,
@@ -362,7 +367,7 @@ def _(backtest_cfg, comparison_table, mo, pd, results):
 
 
 @app.cell
-def _(mo, results, threshold_name):
+def trade_log(mo, results, threshold_name):
     trades = results[threshold_name].trades
     display = trades.assign(
         date=trades["date"].dt.date,
