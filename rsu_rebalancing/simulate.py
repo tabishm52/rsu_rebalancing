@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass
 import pandas as pd
 
 from .calendar import grant_trade_dates, rebalance_trade_dates
-from .config import GrantSchedule, SimConfig, StrategyConfig
+from .config import GrantSchedule, SimConfig, StrategyConfig, TaxConfig
 from .data import get_price_frame
 from .portfolio import Portfolio
 from .strategy import HoldEverything, RebalanceRule, SellAllAtVest, ThresholdRebalance, TradingDay
@@ -28,6 +28,9 @@ class SimResult:
         employer_fraction: Daily employer-stock share of total holdings.
         trades: Audit log of every grant and sale, one row each.
         final_portfolio: The portfolio state at the end of the run.
+        final_net_value: After-tax value on the last day of the whole portfolio. Not a true
+            liquidation tax estimation, but used to put strategies that realized gains along
+            the way on an even footing with those carrying large unrealized gains.
     """
 
     name: str
@@ -35,6 +38,7 @@ class SimResult:
     employer_fraction: pd.Series
     trades: pd.DataFrame
     final_portfolio: Portfolio
+    final_net_value: float = 0.0
 
     @property
     def contributions(self) -> pd.Series:
@@ -57,6 +61,7 @@ def run_rule(
     grants: dict[pd.Timestamp, float],
     rebalance_days: list[pd.Timestamp],
     rule: RebalanceRule,
+    tax_config: TaxConfig | None = None,
 ) -> SimResult:
     """Run a single rule over a price frame.
 
@@ -67,10 +72,15 @@ def run_rule(
         grants: Mapping of trading day to grant dollars.
         rebalance_days: Trading days on which the rule may rebalance.
         rule: The strategy logic to apply each day.
+        tax_config: Rates for the hypothetical end-of-run liquidation tax (the same rates
+            across all strategies, for a fair after-tax comparison).
 
     Returns:
         A :class:`SimResult` for this rule.
     """
+    if tax_config is None:
+        tax_config = TaxConfig()
+
     employer = prices[employer_ticker]
     index = prices[index_ticker]
     rebalance_set = set(rebalance_days)
@@ -97,6 +107,8 @@ def run_rule(
         values[date] = portfolio.total_value(emp_price, idx_price)
         fractions[date] = portfolio.employer_fraction(emp_price, idx_price)
 
+    final_net_value = portfolio.net_liquidation_value(emp_price, idx_price, date, tax_config)
+
     trades = pd.DataFrame([asdict(r) for r in records])
     return SimResult(
         name=rule.name,
@@ -104,6 +116,7 @@ def run_rule(
         employer_fraction=pd.Series(fractions, name=rule.name),
         trades=trades,
         final_portfolio=portfolio,
+        final_net_value=final_net_value,
     )
 
 
@@ -150,6 +163,7 @@ def run_backtest(
             grants,
             rebalance_days,
             rule,
+            strategy.tax_config,
         )
         for rule in rules
     }

@@ -118,7 +118,8 @@ def summarize(result: SimResult, risk_free_rate: float = 0.0) -> pd.Series:
     returns = time_weighted_returns(result.values, contributions)
     return pd.Series(
         {
-            "Final value": float(result.values.iloc[-1]),
+            "Final portfolio value": float(result.values.iloc[-1]),
+            "Liquidation value (net of tax)": result.final_net_value,
             "Total contributed": float(contributions.sum()),
             "Ann. return (TWR)": annualized_return(returns),
             "Ann. volatility": annualized_volatility(returns),

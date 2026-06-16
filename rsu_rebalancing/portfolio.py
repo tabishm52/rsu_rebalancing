@@ -19,14 +19,14 @@ _SHARE_EPS = 1e-9
 
 @dataclass
 class TaxLot:
-    """A block of employer shares acquired at one cost basis (one vesting event).
+    """A block of shares acquired at one cost basis (a vest, or an index purchase).
 
     Attributes:
-        shares: Number of employer shares in the lot.
-        cost_per_share: Per-share cost basis (the vest-day price); the lot's total
+        shares: Number of shares in the lot.
+        cost_per_share: Per-share cost basis (the acquisition-day price); the lot's total
             basis is ``shares * cost_per_share``.
-        acquisition_date: Vest date of the lot, used to classify a sale's realized gain
-            as short- or long-term by holding period.
+        acquisition_date: Acquisition date of the lot, used to classify a sale's realized
+            gain as short- or long-term by holding period.
     """
 
     shares: float
@@ -62,19 +62,24 @@ class Portfolio:
     """Holdings in employer stock (as cost lots) plus a diversified index position.
 
     Attributes:
-        employer_lots: Cost lots of employer stock, kept in acquisition order; sales
+        employer_lots: Cost lots of employer stock, kept in acquisition order. Sales
             drain them lowest-realized-tax-first, not by position.
-        index_shares: Shares of the diversified index. Tracked as a plain count with no
-            cost basis, since the index is only ever bought, never sold.
+        index_lots: Cost lots of the diversified index, one per purchase. The index is
+            never sold during a run, but lots carry the cost basis.
     """
 
     employer_lots: list[TaxLot] = field(default_factory=list)
-    index_shares: float = 0.0
+    index_lots: list[TaxLot] = field(default_factory=list)
 
     @property
     def employer_shares(self) -> float:
         """Total employer shares held across all lots."""
         return sum(lot.shares for lot in self.employer_lots)
+
+    @property
+    def index_shares(self) -> float:
+        """Total index shares held across all lots."""
+        return sum(lot.shares for lot in self.index_lots)
 
     def employer_value(self, employer_price: float) -> float:
         """Market value of the employer position at ``employer_price``."""
@@ -109,6 +114,12 @@ class Portfolio:
             gross_value=dollars,
             tax_paid=0.0,
             index_dollars_in=0.0,
+        )
+
+    def buy_index(self, date: pd.Timestamp, dollars: float, index_price: float) -> None:
+        """Buy ``dollars`` of the index at ``index_price`` as a new cost lot."""
+        self.index_lots.append(
+            TaxLot(shares=dollars / index_price, cost_per_share=index_price, acquisition_date=date)
         )
 
     def _tax_per_share(
@@ -209,7 +220,7 @@ class Portfolio:
 
         # Pay capital-gains tax out of the proceeds; reinvest the remainder in the index.
         net = proceeds - tax_paid
-        self.index_shares += net / index_price
+        self.buy_index(date, net, index_price)
 
         return TradeRecord(
             date=date,
@@ -219,4 +230,43 @@ class Portfolio:
             gross_value=proceeds,
             tax_paid=tax_paid,
             index_dollars_in=net,
+        )
+
+    def liquidation_tax(
+        self,
+        employer_price: float,
+        index_price: float,
+        date: pd.Timestamp,
+        tax_config: TaxConfig,
+    ) -> float:
+        """Capital-gains tax owed if every lot were sold at the given prices on ``date``.
+
+        Both legs are taxed: employer lots at ``employer_price`` and index lots at
+        ``index_price``, each by its own holding period. Selling everything makes
+        lot-selection order irrelevant, so this is a straight sum over all lots. Used
+        only for reporting; no holdings are actually sold.
+
+        Gains are taxed at the configured flat effective rates -- a real one-shot
+        liquidation would push into higher brackets, but that is deliberately ignored.
+        This exists to put strategies on an equal after-tax footing, not to estimate an
+        actual tax bill.
+        """
+        return sum(
+            self._tax_per_share(lot, employer_price, date, tax_config) * lot.shares
+            for lot in self.employer_lots
+        ) + sum(
+            self._tax_per_share(lot, index_price, date, tax_config) * lot.shares
+            for lot in self.index_lots
+        )
+
+    def net_liquidation_value(
+        self,
+        employer_price: float,
+        index_price: float,
+        date: pd.Timestamp,
+        tax_config: TaxConfig,
+    ) -> float:
+        """After-tax value if the whole portfolio were sold at the given prices on ``date``."""
+        return self.total_value(employer_price, index_price) - self.liquidation_tax(
+            employer_price, index_price, date, tax_config
         )

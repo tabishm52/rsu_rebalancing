@@ -43,7 +43,7 @@ def test_sell_to_fraction_hits_target_without_tax():
 def test_sell_to_fraction_hits_target_from_mixed_portfolio():
     pf = Portfolio()
     pf.add_grant(DATE, dollars=90_000, employer_price=9.0)  # $90k employer
-    pf.index_shares = 30_000 / 10.0  # plus $30k index -> employer is 75% of $120k
+    pf.buy_index(DATE, dollars=30_000, index_price=10.0)  # +$30k index -> employer is 75% of $120k
 
     trade = pf.sell_employer_to_fraction(
         DATE, target_fraction=1 / 3, employer_price=9.0, index_price=10.0, tax_config=TaxConfig()
@@ -59,7 +59,7 @@ def test_sell_to_fraction_hits_target_from_mixed_portfolio():
 def test_sell_to_fraction_noop_when_below_target():
     pf = Portfolio()
     pf.add_grant(DATE, dollars=10_000, employer_price=10.0)  # $10k employer
-    pf.index_shares = 9_000 / 10.0  # plus $9k index -> employer is 52.6%, below 0.6
+    pf.buy_index(DATE, dollars=9_000, index_price=10.0)  # +$9k index -> employer 52.6%, below 0.6
 
     trade = pf.sell_employer_to_fraction(
         DATE, target_fraction=0.6, employer_price=10.0, index_price=10.0, tax_config=TaxConfig()
@@ -266,3 +266,36 @@ def test_no_tax_devolves_to_fifo():
     assert pf.employer_lots[0].cost_per_share == 10.0
     assert pf.employer_lots[0].shares == approx(500)
     assert pf.employer_lots[1].shares == approx(1000)
+
+
+def test_liquidation_tax_spans_both_legs_holding_periods_and_losses():
+    pf = Portfolio()
+    later = DATE + pd.Timedelta(days=400)
+    pf.add_grant(DATE, dollars=10_000, employer_price=10.0)  # emp old: 1000 sh @ $10
+    pf.add_grant(later, dollars=20_000, employer_price=20.0)  # emp fresh: 1000 sh @ $20
+    pf.buy_index(DATE, dollars=5_000, index_price=5.0)  # idx old: 1000 sh @ $5
+    pf.buy_index(later, dollars=12_000, index_price=12.0)  # idx fresh: 1000 sh @ $12
+
+    # Liquidate where old lots are long-term and fresh lots short-term; index fresh sits
+    # at a loss so it owes nothing.
+    sale_date = later + pd.Timedelta(days=100)
+    cfg = TaxConfig(short_term_rate=0.40, long_term_rate=0.20)
+    tax = pf.liquidation_tax(employer_price=25.0, index_price=10.0, date=sale_date, tax_config=cfg)
+
+    # emp old:   1000 * ($25-$10) * 0.20 = $3,000 (long-term gain)
+    # emp fresh: 1000 * ($25-$20) * 0.40 = $2,000 (short-term gain)
+    # idx old:   1000 * ($10-$5)  * 0.20 = $1,000 (long-term gain)
+    # idx fresh: ($10-$12) < 0             = $0    (loss owes nothing)
+    assert tax == approx(6_000)
+
+
+def test_net_liquidation_value_is_value_less_tax():
+    pf = Portfolio()
+    pf.add_grant(DATE, dollars=10_000, employer_price=10.0)
+    pf.buy_index(DATE, dollars=5_000, index_price=5.0)
+
+    cfg = TaxConfig()
+    net = pf.net_liquidation_value(employer_price=20.0, index_price=10.0, date=DATE, tax_config=cfg)
+
+    expected = pf.total_value(20.0, 10.0) - pf.liquidation_tax(20.0, 10.0, DATE, cfg)
+    assert net == approx(expected)

@@ -271,7 +271,8 @@ def _(comparison_table, mo, pd, results, sim_cfg):
     table = comparison_table(results, risk_free_rate=sim_cfg.risk_free_rate)
 
     formatters = {
-        "Final value": "${:,.0f}".format,
+        "Final portfolio value": "${:,.0f}".format,
+        "Liquidation value (net of tax)": "${:,.0f}".format,
         "Total contributed": "${:,.0f}".format,
         "Ann. return (TWR)": "{:.2%}".format,
         "Ann. volatility": "{:.2%}".format,

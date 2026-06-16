@@ -90,3 +90,20 @@ def test_grant_vests_before_rebalancing_on_a_shared_day():
     # the trim would find an empty portfolio and the grant would stay untrimmed at 1.0.)
     assert list(result.trades["kind"]) == ["grant", "rebalance"]
     assert result.employer_fraction.loc[GRANT_DAY] == approx(1 / 3)
+
+
+def test_final_net_value_haircuts_unrealized_gains():
+    # Employer doubles over the run, so Hold-everything ends with a large unrealized gain;
+    # the net-of-tax liquidation value sits below the gross portfolio value.
+    result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], HoldEverything())
+
+    assert result.final_net_value < result.values.iloc[-1]
+
+
+def test_final_net_value_equals_gross_with_no_gain():
+    # Flat prices: nothing has appreciated, so liquidation owes no tax and net == gross.
+    flat = pd.DataFrame({"EMP": [11] * 10, "IDX": [100] * 10}, index=DATES)
+
+    result = run_rule(flat, "EMP", "IDX", GRANTS, [REBALANCE_DAY], HoldEverything())
+
+    assert result.final_net_value == approx(result.values.iloc[-1])
