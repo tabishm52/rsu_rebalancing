@@ -41,6 +41,7 @@ def imports():
         StrategyConfig,
         TaxConfig,
         comparison_table,
+        get_price_frame,
         growth_of_one,
         run_backtest,
         time_weighted_returns,
@@ -53,6 +54,7 @@ def imports():
         StrategyConfig,
         TaxConfig,
         comparison_table,
+        get_price_frame,
         growth_of_one,
         mo,
         pd,
@@ -321,27 +323,93 @@ def concentration_plot(mo, plt, results, strategy_cfg, threshold_name):
     return
 
 
+@app.function
+def outperformance_spans(employer, index, lookback=63, min_days=90, gap_days=10):
+    """Date spans where the index has out-returned the employer stock.
+
+    A day is "index-ahead" when the index's return over the trailing ``lookback``
+    trading days exceeds the employer's — i.e. diversification has been paying off
+    lately. Consecutive index-ahead days form an episode; episodes separated by a gap of
+    at most ``gap_days`` calendar days are merged (so one good week doesn't split a
+    protection phase), and only the merged spans lasting at least ``min_days`` survive,
+    dropping daily noise. Returns ``(start, end)`` pairs.
+
+    This shades the relative *declines* (employer losing ground), not the recoveries:
+    an underwater/drawdown definition would also redden the long climbs back and, for a
+    strong long-term outperformer, cover almost the whole window.
+    """
+    ahead = employer.pct_change(lookback) < index.pct_change(lookback)
+    runs = (ahead != ahead.shift()).cumsum()
+    segments = [(run.index[0], run.index[-1]) for _, run in ahead.groupby(runs) if run.iloc[0]]
+    spans = []
+    for start, end in segments:
+        if spans and (start - spans[-1][1]).days <= gap_days:
+            spans[-1] = (spans[-1][0], end)
+        else:
+            spans.append((start, end))
+    return [(start, end) for start, end in spans if (end - start).days >= min_days]
+
+
 @app.cell
 def performance_plot(
     backtest_cfg,
+    get_price_frame,
     growth_of_one,
     mo,
     pd,
     plt,
     results,
+    strategy_cfg,
     time_weighted_returns,
 ):
+    # Spell out each strategy's target composition so the legend stands alone (e.g.
+    # "Threshold: 33% AAPL / 67% VTI"); derived from config, so it tracks the ticker and
+    # threshold controls. The generic result names stay as-is for the table and lookups.
+    _emp, _idx, _thr = (
+        strategy_cfg.employer_ticker,
+        strategy_cfg.index_ticker,
+        strategy_cfg.threshold,
+    )
+
+    def _label(name):
+        if name == "Hold everything":
+            return f"Hold everything: 100% {_emp}"
+        if name == "Sell all at vest":
+            return f"Sell all at vest: 100% {_idx}"
+        if name.startswith("Threshold"):
+            return f"Threshold: {_thr:.0%} {_emp} / {1 - _thr:.0%} {_idx}"
+        return name
+
     after_tax = backtest_cfg.after_tax_performance
     perf = {name: (res.net_of_tax if after_tax else res.market) for name, res in results.items()}
-    curves = {name: growth_of_one(time_weighted_returns(p)) for name, p in perf.items()}
+    curves = {_label(name): growth_of_one(time_weighted_returns(p)) for name, p in perf.items()}
     growth_df = pd.DataFrame(curves)
+
+    # Shade stretches where the diversified index out-returned the employer stock — the
+    # episodes the threshold strategy's downside protection is meant to catch.
+    _prices = get_price_frame(
+        [strategy_cfg.employer_ticker, strategy_cfg.index_ticker],
+        backtest_cfg.start,
+        backtest_cfg.end,
+    )
+    _spans = outperformance_spans(
+        _prices[strategy_cfg.employer_ticker.upper()],
+        _prices[strategy_cfg.index_ticker.upper()],
+    )
 
     _basis = "after-tax" if after_tax else "pre-tax"
     growth_fig, growth_ax = plt.subplots(figsize=(12, 5))
     (growth_df * 100).plot(ax=growth_ax)
+    _band = None
+    for _start, _end in _spans:
+        _band = growth_ax.axvspan(_start, _end, color="#d62728", alpha=0.12, zorder=0)
     growth_ax.set_xlabel("Date")
     growth_ax.set_ylabel(f"Index, start = 100 ({_basis}, time-weighted)")
-    growth_ax.legend(title="strategy")
+    _handles, _labels = growth_ax.get_legend_handles_labels()
+    if _band is not None:
+        _handles.append(_band)
+        _labels.append("index outperforming employer")
+    growth_ax.legend(_handles, _labels, loc="upper left")
     growth_fig.tight_layout()
 
     mo.vstack(
