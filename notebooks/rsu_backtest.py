@@ -288,13 +288,28 @@ def _(mo):
 
 @app.cell
 def concentration_plot(mo, plt, results, strategy_cfg, threshold_name):
-    frac = results[threshold_name].employer_fraction
+    result = results[threshold_name]
+    frac = result.employer_fraction
+
+    _trades = result.trades
+    sale_dates = _trades.loc[_trades["kind"].isin(["rebalance", "liquidate"]), "date"]
+    pre_sale_frac = frac.shift(1).loc[sale_dates]
 
     frac_fig, frac_ax = plt.subplots(figsize=(12, 5))
     frac_ax.plot(frac.index, frac.values, color="#d62728")
     frac_ax.axhline(strategy_cfg.threshold, linestyle="--", color="gray")
+    frac_ax.scatter(
+        sale_dates,
+        pre_sale_frac,
+        marker="*",
+        s=120,
+        color="#1f77b4",
+        zorder=3,
+        label="rebalance events",
+    )
     frac_ax.set_xlabel("Date")
     frac_ax.set_ylabel("Employer fraction of holdings")
+    frac_ax.legend()
     frac_fig.tight_layout()
 
     mo.vstack(
