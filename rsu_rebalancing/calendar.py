@@ -59,15 +59,15 @@ def grant_trade_dates(
 def rebalance_trade_dates(
     trading_days: pd.DatetimeIndex,
     rebalances_per_quarter: int,
-    sim_start: pd.Timestamp,
-    sim_end: pd.Timestamp,
+    window_start: pd.Timestamp,
+    window_end: pd.Timestamp,
 ) -> list[pd.Timestamp]:
     """Place evenly spaced rebalance trade days within each calendar quarter.
 
     The trades sit at the centers of ``rebalances_per_quarter`` equal slices of the
     quarter's true calendar span: one trade lands mid-quarter, two at the quarter and
     three-quarter marks, three at the sixth marks, and so on. Any dates that land outside
-    ``[sim_start, sim_end]`` are dropped.
+    ``[window_start, window_end]`` are dropped.
 
     This spacing is deliberate: one or two rebalances a quarter sit near the middle and
     so roughly respect insider-trading blackout windows, which open near the start and
@@ -77,8 +77,8 @@ def rebalance_trade_dates(
     Args:
         trading_days: Sorted index of available trading days.
         rebalances_per_quarter: Number of rebalances to place in each quarter (>= 1).
-        sim_start: First date of the simulation window (inclusive).
-        sim_end: Last date of the simulation window (inclusive).
+        window_start: First date of the backtest window (inclusive).
+        window_end: Last date of the backtest window (inclusive).
 
     Returns:
         A sorted list of rebalance trade days, deduplicated.
@@ -90,7 +90,7 @@ def rebalance_trade_dates(
         for i in range(1, rebalances_per_quarter + 1):
             fraction = (2 * i - 1) / (2 * rebalances_per_quarter)
             target = (quarter.start_time + fraction * span).normalize()
-            if not sim_start <= target <= sim_end:
+            if not window_start <= target <= window_end:
                 continue
 
             day = first_trading_day_on_or_after(trading_days, target)

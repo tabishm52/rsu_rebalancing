@@ -8,21 +8,21 @@ sees the identical grant stream.
 import pandas as pd
 from pytest import approx
 
-from rsu_rebalancing import simulate
-from rsu_rebalancing.config import GrantSchedule, SimConfig, StrategyConfig
-from rsu_rebalancing.simulate import PerfSeries, SimResult
+from rsu_rebalancing import backtest
+from rsu_rebalancing.backtest import BacktestResult, PerfSeries
+from rsu_rebalancing.config import BacktestConfig, GrantSchedule, StrategyConfig
 
 _DATES = pd.bdate_range("2020-01-01", "2020-12-31")
 _PRICES = pd.DataFrame({"EMP": 10.0, "IDX": 100.0}, index=_DATES)
 
 
 def _run_backtest(monkeypatch):
-    monkeypatch.setattr(simulate, "get_price_frame", lambda *args, **kwargs: _PRICES)
+    monkeypatch.setattr(backtest, "get_price_frame", lambda *args, **kwargs: _PRICES)
     strategy = StrategyConfig(employer_ticker="EMP", index_ticker="IDX", threshold=1 / 3)
     schedule = GrantSchedule(annual_dollars=50_000, start_year=2020, end_year=2020)
-    sim = SimConfig(start="2020-01-01", end="2020-12-31")
+    backtest_cfg = BacktestConfig(start="2020-01-01", end="2020-12-31")
 
-    return simulate.run_backtest(strategy, schedule, sim)
+    return backtest.run_backtest(strategy, schedule, backtest_cfg)
 
 
 def test_run_backtest_keys_each_rule_by_name(monkeypatch):
@@ -51,7 +51,7 @@ def test_gross_grants_count_only_grants():
             "tax_paid": [0.0, 0.0, 30.0],
         }
     )
-    result = SimResult(
+    result = BacktestResult(
         name="x",
         market=PerfSeries(values=pd.Series(0.0, index=_DATES[:3])),
         trades=trades,

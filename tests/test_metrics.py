@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from pytest import approx
 
+from rsu_rebalancing.backtest import PerfSeries
 from rsu_rebalancing.metrics import (
     annualized_return,
     growth_of_one,
@@ -16,7 +17,6 @@ from rsu_rebalancing.metrics import (
     sharpe_ratio,
     time_weighted_returns,
 )
-from rsu_rebalancing.simulate import PerfSeries
 
 DATES = pd.bdate_range("2020-01-01", periods=4)
 

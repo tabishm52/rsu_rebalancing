@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import quantstats as qs
 
-from .simulate import PerfSeries, SimResult
+from .backtest import BacktestResult, PerfSeries
 
 TRADING_DAYS_PER_YEAR = 252
 
@@ -104,7 +104,7 @@ def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
     return float(qs.stats.sharpe(returns, rf=risk_free_rate, periods=TRADING_DAYS_PER_YEAR))
 
 
-def summarize(result: SimResult, risk_free_rate: float, after_tax: bool) -> pd.Series:
+def summarize(result: BacktestResult, risk_free_rate: float, after_tax: bool) -> pd.Series:
     """Build a one-row summary of return and risk metrics for a strategy.
 
     Args:
@@ -134,7 +134,7 @@ def summarize(result: SimResult, risk_free_rate: float, after_tax: bool) -> pd.S
 
 
 def comparison_table(
-    results: dict[str, SimResult], risk_free_rate: float, after_tax: bool
+    results: dict[str, BacktestResult], risk_free_rate: float, after_tax: bool
 ) -> pd.DataFrame:
     """Stack per-strategy summaries into one comparison table (strategies as columns)."""
     return pd.DataFrame(

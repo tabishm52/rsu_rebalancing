@@ -1,8 +1,8 @@
 """Interactive backtest of the one-way threshold rebalancing strategy.
 
-Run with: ``uv run marimo edit notebooks/rebalance_sim.py``
+Run with: ``uv run marimo edit notebooks/rsu_backtest.py``
 
-Set the parameters in the controls panel and the simulation re-runs reactively,
+Set the parameters in the controls panel and the backtest re-runs reactively,
 comparing the threshold strategy against the hold-everything and sell-all-at-vest
 baselines on both return and risk.
 """
@@ -21,8 +21,8 @@ def _():
     import seaborn as sns
 
     from rsu_rebalancing import (
+        BacktestConfig,
         GrantSchedule,
-        SimConfig,
         StrategyConfig,
         TaxConfig,
         comparison_table,
@@ -33,8 +33,8 @@ def _():
 
     sns.set_theme()
     return (
+        BacktestConfig,
         GrantSchedule,
-        SimConfig,
         StrategyConfig,
         TaxConfig,
         comparison_table,
@@ -69,7 +69,7 @@ def _(mo):
 
 
 @app.cell
-def _(SimConfig, StrategyConfig, TaxConfig, mo):
+def _(BacktestConfig, StrategyConfig, TaxConfig, mo):
     # Tuning and reporting defaults come from the config dataclasses (single source of
     # truth); the notebook owns UI presentation (widget type, ranges, percent units) and
     # seeds the required policy inputs (employer, grant size, dates, threshold), which the
@@ -125,13 +125,13 @@ def _(SimConfig, StrategyConfig, TaxConfig, mo):
     risk_free = mo.ui.slider(
         start=0,
         stop=8,
-        value=round(SimConfig.risk_free_rate * 100),
+        value=round(BacktestConfig.risk_free_rate * 100),
         step=1,
         label="Risk-free % (for Sharpe)",
         show_value=True,
     )
     after_tax_perf = mo.ui.switch(
-        value=SimConfig.after_tax_performance, label="Measure performance after tax"
+        value=BacktestConfig.after_tax_performance, label="Measure performance after tax"
     )
 
     # The everyday knobs sit up top; the fussy details (exact tax rates, risk-free) tuck
@@ -182,8 +182,8 @@ def _(mo):
 
 @app.cell
 def _(
+    BacktestConfig,
     GrantSchedule,
-    SimConfig,
     StrategyConfig,
     TaxConfig,
     after_tax_perf,
@@ -228,7 +228,7 @@ def _(
         start_year=start_ts.year,
         end_year=end_ts.year,
     )
-    sim_cfg = SimConfig(
+    backtest_cfg = BacktestConfig(
         start=start_ts,
         end=end_ts,
         risk_free_rate=risk_free.value / 100.0,
@@ -236,7 +236,7 @@ def _(
     )
 
     try:
-        results = run_backtest(strategy_cfg, schedule, sim_cfg)
+        results = run_backtest(strategy_cfg, schedule, backtest_cfg)
         error = None
     except Exception as exc:  # noqa: BLE001 - surface any data/config error in the UI
         results = None
@@ -245,7 +245,7 @@ def _(
     mo.stop(error is not None, mo.md(f"⚠️ **Could not run:** {error}"))
     threshold_name = next(name for name in results if name.startswith("Threshold"))
     results
-    return results, sim_cfg, strategy_cfg, threshold_name
+    return results, backtest_cfg, strategy_cfg, threshold_name
 
 
 @app.cell
@@ -277,8 +277,8 @@ def _(mo, plt, results, strategy_cfg, threshold_name):
 
 
 @app.cell
-def _(growth_of_one, mo, pd, plt, results, sim_cfg, time_weighted_returns):
-    after_tax = sim_cfg.after_tax_performance
+def _(growth_of_one, mo, pd, plt, results, backtest_cfg, time_weighted_returns):
+    after_tax = backtest_cfg.after_tax_performance
     perf = {name: (res.net_of_tax if after_tax else res.market) for name, res in results.items()}
     curves = {name: growth_of_one(time_weighted_returns(p)) for name, p in perf.items()}
     growth_df = pd.DataFrame(curves)
@@ -296,11 +296,11 @@ def _(growth_of_one, mo, pd, plt, results, sim_cfg, time_weighted_returns):
 
 
 @app.cell
-def _(comparison_table, mo, pd, results, sim_cfg):
+def _(comparison_table, mo, pd, results, backtest_cfg):
     table = comparison_table(
         results,
-        risk_free_rate=sim_cfg.risk_free_rate,
-        after_tax=sim_cfg.after_tax_performance,
+        risk_free_rate=backtest_cfg.risk_free_rate,
+        after_tax=backtest_cfg.after_tax_performance,
     )
 
     formatters = {
@@ -316,7 +316,7 @@ def _(comparison_table, mo, pd, results, sim_cfg):
     # Build an object-dtype frame of formatted strings (rows = metrics, cols = strategies).
     styled = pd.DataFrame({row: table.loc[row].map(fmt) for row, fmt in formatters.items()}).T
 
-    _basis = "after-tax" if sim_cfg.after_tax_performance else "pre-tax"
+    _basis = "after-tax" if backtest_cfg.after_tax_performance else "pre-tax"
     mo.vstack(
         [mo.md(f"### Return & risk comparison ({_basis})"), mo.ui.table(styled, selection=None)]
     )

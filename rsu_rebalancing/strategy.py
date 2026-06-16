@@ -1,8 +1,8 @@
 """Rebalancing rules: the threshold strategy and two comparison baselines.
 
 Each rule decides what trades to make on a given day, given the portfolio and the
-day's market facts (:class:`TradingDay`). They share the same simulation engine
-(:mod:`rsu_rebalancing.simulate`), so they differ only in this small ``step`` method.
+day's market facts (:class:`TradingDay`). They share the same backtest engine
+(:mod:`rsu_rebalancing.backtest`), so they differ only in this small ``step`` method.
 """
 
 from dataclasses import dataclass

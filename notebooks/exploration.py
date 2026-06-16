@@ -4,7 +4,7 @@ Run with: ``uv run marimo edit notebooks/exploration.py``
 
 This is a learning notebook, not part of the package API -- a place to poke at the
 data layer and basic financial idioms (returns, normalization, rolling stats) in raw
-pandas and via quantstats, before the structured simulation in ``rebalance_sim.py``.
+pandas and via quantstats, before the structured backtest in ``rsu_backtest.py``.
 """
 
 import marimo

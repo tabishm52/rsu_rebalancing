@@ -1,4 +1,4 @@
-"""The simulation engine: walk the price timeline applying a rule, day by day.
+"""The backtest engine: walk the price timeline applying a rule, day by day.
 
 This ties together prices (:mod:`rsu_rebalancing.data`), the calendar
 (:mod:`rsu_rebalancing.calendar`), the portfolio, and a rule
@@ -10,7 +10,7 @@ from dataclasses import asdict, dataclass, field
 import pandas as pd
 
 from .calendar import grant_trade_dates, rebalance_trade_dates
-from .config import GrantSchedule, SimConfig, StrategyConfig, TaxConfig
+from .config import BacktestConfig, GrantSchedule, StrategyConfig, TaxConfig
 from .data import get_price_frame
 from .portfolio import Portfolio
 from .strategy import HoldEverything, RebalanceRule, SellAllAtVest, ThresholdRebalance, TradingDay
@@ -38,7 +38,7 @@ class PerfSeries:
 
 
 @dataclass
-class SimResult:
+class BacktestResult:
     """The output of one strategy run over the backtest window.
 
     Attributes:
@@ -83,7 +83,7 @@ def run_rule(
     rebalance_days: list[pd.Timestamp],
     rule: RebalanceRule,
     tax_config: TaxConfig | None = None,
-) -> SimResult:
+) -> BacktestResult:
     """Run a single rule over a price frame.
 
     Args:
@@ -97,7 +97,7 @@ def run_rule(
             across all strategies, for a fair after-tax comparison).
 
     Returns:
-        A :class:`SimResult` for this rule.
+        A :class:`BacktestResult` for this rule.
     """
     if tax_config is None:
         tax_config = TaxConfig()
@@ -149,7 +149,7 @@ def run_rule(
         prev_date = date
 
     trades = pd.DataFrame([asdict(r) for r in records])
-    return SimResult(
+    return BacktestResult(
         name=rule.name,
         market=PerfSeries(
             values=pd.Series(market_values, name=rule.name),
@@ -168,31 +168,33 @@ def run_rule(
 def run_backtest(
     strategy: StrategyConfig,
     schedule: GrantSchedule,
-    sim: SimConfig,
-) -> dict[str, SimResult]:
+    backtest: BacktestConfig,
+) -> dict[str, BacktestResult]:
     """Run the threshold strategy and both baselines over identical grants and prices.
 
     :func:`~rsu_rebalancing.data.get_price_frame` trims the window to where every ticker
-    trades, so a ticker that IPO'd after ``sim.start`` shifts the start forward and any
+    trades, so a ticker that IPO'd after ``backtest.start`` shifts the start forward and any
     grants nominally before it collapse onto its first trading day -- intentional, and
     identical across strategies.
 
     Args:
         strategy: Strategy parameters (tickers, threshold, trade-day offsets, tax).
         schedule: The annual grant stream.
-        sim: The date window and risk-free rate.
+        backtest: The date window and risk-free rate.
 
     Returns:
-        A dict keyed by strategy name, mapping to each :class:`SimResult`. The
+        A dict keyed by strategy name, mapping to each :class:`BacktestResult`. The
         threshold strategy's result is always present under its threshold-labelled key.
     """
-    prices = get_price_frame([strategy.employer_ticker, strategy.index_ticker], sim.start, sim.end)
+    prices = get_price_frame(
+        [strategy.employer_ticker, strategy.index_ticker], backtest.start, backtest.end
+    )
 
     trading_days = pd.DatetimeIndex(prices.index)
 
     grants = grant_trade_dates(trading_days, schedule)
     rebalance_days = rebalance_trade_dates(
-        trading_days, strategy.rebalances_per_quarter, sim.start, sim.end
+        trading_days, strategy.rebalances_per_quarter, backtest.start, backtest.end
     )
 
     rules: list[RebalanceRule] = [

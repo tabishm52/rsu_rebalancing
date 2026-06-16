@@ -43,14 +43,14 @@ See [README.md](README.md) for the strategy and quickstart.
 ### Layout
 
 - `rsu_rebalancing/` — the library
-  - `config.py` — frozen dataclasses (`GrantSchedule`, `StrategyConfig`, `SimConfig`)
+  - `config.py` — frozen dataclasses (`GrantSchedule`, `StrategyConfig`, `BacktestConfig`)
   - `data.py` — yfinance access, in-memory memoized
   - `calendar.py` — pure functions mapping grants/rebalances onto trading days
   - `portfolio.py` — holdings, tax lots (sold lowest-tax-first), the sell-to-fraction primitive
   - `strategy.py` — the threshold rule + `HoldEverything` / `SellAllAtVest` baselines
-  - `simulate.py` — the day-by-day engine; `run_backtest` is the top-level entry point
+  - `backtest.py` — the day-by-day engine; `run_backtest` is the top-level entry point
   - `metrics.py` — time-weighted returns and risk stats
-- `notebooks/` — marimo notebooks (`rebalance_sim.py` is the app; `exploration.py` is a scratchpad)
+- `notebooks/` — marimo notebooks (`rsu_backtest.py` is the app; `exploration.py` is a scratchpad)
 - `tests/` — pytest, network-free (synthetic prices / trading days)
 
 ### Commands
@@ -60,7 +60,7 @@ uv sync --extra dev                 # set up the environment
 uv run pytest -q                    # tests (no network)
 uv run ruff check . && uv run ruff format --check .
 uv run mypy                         # lenient; see below
-uv run marimo edit notebooks/rebalance_sim.py
+uv run marimo edit notebooks/rsu_backtest.py
 ```
 
 ### Conventions & gotchas
@@ -100,7 +100,7 @@ push when asked.
 
 - **Scope names the module the change is confined to** (`fix(portfolio)`,
   `feat(strategy)`, `refactor(notebooks)`); omit it for cross-cutting changes.
-- **The sim notebook (`notebooks/rebalance_sim.py`) is a deliverable.** Pick its type by
+- **The sim notebook (`notebooks/rsu_backtest.py`) is a deliverable.** Pick its type by
   intent like source: new control/panel/analysis → `feat`, wrong calc / broken cell →
   `fix`, same-output rework (e.g. swapping plot libs) → `refactor`, cosmetic styling →
   `style`. Scope it `(notebooks)` so it reads as the demo surface, not the engine.

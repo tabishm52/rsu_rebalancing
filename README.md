@@ -25,7 +25,7 @@ is self-correcting concentration control — you sell **more** when your employe
 outperforms the market and **less** when it lags, and a fresh grant usually triggers a
 sale at the next rebalance.
 
-The simulator compares that strategy against two baselines:
+The backtest compares that strategy against two baselines:
 
 | Strategy | What it does |
 | --- | --- |
@@ -46,24 +46,24 @@ uv sync --extra dev
 ### Interactive notebook
 
 ```bash
-uv run marimo edit notebooks/rebalance_sim.py
+uv run marimo edit notebooks/rsu_backtest.py
 ```
 
 Set the employer/index tickers, date range, annual grant, threshold, trade-day timing,
-and tax rate; the simulation re-runs reactively with charts (concentration over time,
+and tax rate; the backtest re-runs reactively with charts (concentration over time,
 growth of $1) and a return/risk comparison table.
 
 ### From Python
 
 ```python
-from rsu_rebalancing import GrantSchedule, StrategyConfig, SimConfig, run_backtest, comparison_table
+from rsu_rebalancing import GrantSchedule, StrategyConfig, BacktestConfig, run_backtest, comparison_table
 
 strategy = StrategyConfig(employer_ticker="AAPL", index_ticker="VTI", threshold=1/3)
 schedule = GrantSchedule(annual_dollars=100_000, start_year=2015, end_year=2023)
-sim = SimConfig(start="2015-01-01", end="2024-12-31", risk_free_rate=0.02)
+backtest = BacktestConfig(start="2015-01-01", end="2024-12-31", risk_free_rate=0.02)
 
-results = run_backtest(strategy, schedule, sim)
-print(comparison_table(results, risk_free_rate=sim.risk_free_rate))
+results = run_backtest(strategy, schedule, backtest)
+print(comparison_table(results, risk_free_rate=backtest.risk_free_rate))
 ```
 
 Illustrative output (AAPL vs VTI, $100k/yr, 2015–2024 — *not a recommendation*):
@@ -111,7 +111,7 @@ a fair head-to-head number because every strategy receives the identical grant s
 `GrantSchedule`: `annual_dollars`, `start_year`, `end_year`, and optional
 `grant_month`/`grant_day` (default first trading day on/after March 1).
 
-`SimConfig`: `start`, `end`, `risk_free_rate` (for the Sharpe ratio).
+`BacktestConfig`: `start`, `end`, `risk_free_rate` (for the Sharpe ratio).
 
 ## Data & caching
 

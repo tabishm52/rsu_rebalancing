@@ -1,11 +1,11 @@
-"""Tests for the rules running through the simulation engine on synthetic prices."""
+"""Tests for the rules running through the backtest engine on synthetic prices."""
 
 import pandas as pd
 from pytest import approx
 
+from rsu_rebalancing.backtest import run_rule
 from rsu_rebalancing.config import TaxConfig
 from rsu_rebalancing.metrics import time_weighted_returns
-from rsu_rebalancing.simulate import run_rule
 from rsu_rebalancing.strategy import HoldEverything, SellAllAtVest, ThresholdRebalance
 
 # A small synthetic price frame: employer doubles, index flat.

@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from rsu_rebalancing.config import GrantSchedule, SimConfig, StrategyConfig, TaxConfig
+from rsu_rebalancing.config import BacktestConfig, GrantSchedule, StrategyConfig, TaxConfig
 
 # --- GrantSchedule ---------------------------------------------------------
 
@@ -102,17 +102,17 @@ def test_tax_config_rejects_non_positive_long_term_days():
         TaxConfig(long_term_days=0)
 
 
-# --- SimConfig -------------------------------------------------------------
+# --- BacktestConfig --------------------------------------------------------
 
 
-def test_sim_config_normalizes_string_dates():
-    cfg = SimConfig(start="2020-01-01 09:30", end="2024-12-31")
+def test_backtest_config_normalizes_string_dates():
+    cfg = BacktestConfig(start="2020-01-01 09:30", end="2024-12-31")
 
     assert cfg.start == pd.Timestamp("2020-01-01")
     assert cfg.end == pd.Timestamp("2024-12-31")
     assert cfg.start.tz is None
 
 
-def test_sim_config_rejects_start_not_before_end():
+def test_backtest_config_rejects_start_not_before_end():
     with pytest.raises(ValueError, match="must be before"):
-        SimConfig(start="2024-01-01", end="2024-01-01")
+        BacktestConfig(start="2024-01-01", end="2024-01-01")

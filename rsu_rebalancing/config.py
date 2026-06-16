@@ -1,6 +1,6 @@
 """Configuration objects for a rebalancing backtest.
 
-These are small, frozen dataclasses that capture *what* to simulate (the grant
+These are small, frozen dataclasses that capture *what* to backtest (the grant
 stream, the strategy parameters, and the date window). They hold no price data and
 do no I/O, which keeps them trivial to construct in tests and notebooks.
 """
@@ -139,8 +139,8 @@ class StrategyConfig:
 
 
 @dataclass(frozen=True)
-class SimConfig:
-    """The simulation window and reporting assumptions (risk-free rate, performance basis).
+class BacktestConfig:
+    """The backtest window and reporting assumptions (risk-free rate, performance basis).
 
     Attributes:
         start: First date of the backtest (inclusive).
