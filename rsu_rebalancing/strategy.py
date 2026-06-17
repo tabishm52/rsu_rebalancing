@@ -38,6 +38,15 @@ class RebalanceRule(Protocol):
 
     name: str  # human-readable label; keys the results dict and labels plots/tables
 
+    def describe(self, employer_ticker: str, index_ticker: str) -> str:
+        """A standalone legend label spelling out the target mix.
+
+        Tickers are passed in rather than stored on the rule: a rule is ticker-agnostic
+        (the same threshold runs against any employer/index pair), so the label is only
+        resolved once the run binds it to a concrete pair.
+        """
+        ...
+
     def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
         """Apply this rule's trades for one day, mutating ``portfolio`` in place.
 
@@ -69,6 +78,13 @@ class ThresholdRebalance:
         self.band = band
         self.tax_config = tax_config if tax_config is not None else TaxConfig()
         self.name = f"Threshold {threshold:.0%}"
+
+    def describe(self, employer_ticker: str, index_ticker: str) -> str:
+        """Description string for the target split."""
+        return (
+            f"Threshold: {self.threshold:.0%} {employer_ticker} / "
+            f"{1 - self.threshold:.0%} {index_ticker}"
+        )
 
     def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
         """Vest any grant, then trim to the threshold if past the band on a rebalance day."""
@@ -102,6 +118,10 @@ class HoldEverything:
 
     name = "Hold everything"
 
+    def describe(self, employer_ticker: str, index_ticker: str) -> str:
+        """Description string for the all-employer baseline."""
+        return f"Hold everything: 100% {employer_ticker}"
+
     def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
         """Vest any grant; never sell."""
         if day.grant_shares is None:
@@ -125,6 +145,10 @@ class SellAllAtVest:
                 :class:`TaxConfig`'s standard rates.
         """
         self.tax_config = tax_config if tax_config is not None else TaxConfig()
+
+    def describe(self, employer_ticker: str, index_ticker: str) -> str:
+        """Description string for the fully-diversified baseline."""
+        return f"Sell all at vest: 100% {index_ticker}"
 
     def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
         """Vest any grant, then sell the entire employer position into the index."""

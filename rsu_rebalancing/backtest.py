@@ -44,6 +44,7 @@ class BacktestResult:
 
     Attributes:
         name: Human-readable strategy name.
+        description: Standalone legend label spelling out the target mix for this run.
         market: Raw market-value basis. ``market.values`` may begin with zero-value days
             before the first grant lands; ``metrics.time_weighted_returns`` neutralizes
             these, so they carry no spurious return.
@@ -56,6 +57,7 @@ class BacktestResult:
     """
 
     name: str
+    description: str
     market: PerfSeries = field(default_factory=PerfSeries)
     net_of_tax: PerfSeries = field(default_factory=PerfSeries)
     employer_fraction: pd.Series = field(default_factory=_empty_series)
@@ -152,6 +154,7 @@ def run_rule(
     trades = pd.DataFrame([asdict(r) for r in records])
     return BacktestResult(
         name=rule.name,
+        description=rule.describe(employer_ticker, index_ticker),
         market=PerfSeries(
             values=pd.Series(market_values, name=rule.name),
             flows=pd.Series(market_flows, name=rule.name),

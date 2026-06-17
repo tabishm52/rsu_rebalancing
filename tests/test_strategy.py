@@ -40,6 +40,26 @@ def test_sell_all_at_vest_holds_no_employer_after_grant():
     assert {"grant", "liquidate"} <= set(result.trades["kind"])
 
 
+def test_rules_describe_their_target_mix():
+    got = [
+        HoldEverything().describe("EMP", "IDX"),
+        ThresholdRebalance(threshold=1 / 3, band=0.0).describe("EMP", "IDX"),
+        SellAllAtVest().describe("EMP", "IDX"),
+    ]
+
+    assert got == [
+        "Hold everything: 100% EMP",
+        "Threshold: 33% EMP / 67% IDX",
+        "Sell all at vest: 100% IDX",
+    ]
+
+
+def test_run_rule_records_the_description_for_its_tickers():
+    result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], HoldEverything())
+
+    assert result.description == "Hold everything: 100% EMP"
+
+
 def test_threshold_trims_to_target_on_rebalance_day():
     # No tax, so the pre-tax-sized trim lands exactly on target.
     no_tax = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)

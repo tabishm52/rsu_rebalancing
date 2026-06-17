@@ -57,6 +57,7 @@ def test_gross_grants_count_only_grants():
     )
     result = BacktestResult(
         name="x",
+        description="x",
         market=PerfSeries(values=pd.Series(0.0, index=_DATES[:3])),
         trades=trades,
     )
