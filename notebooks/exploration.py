@@ -30,6 +30,7 @@ def imports():
     import pandas as pd
     import quantstats as qs
     import seaborn as sns
+    from _helpers import outperformance_spans
 
     from rsu_rebalancing import (
         annualized_return,
@@ -46,6 +47,7 @@ def imports():
         get_price_frame,
         max_drawdown,
         mo,
+        outperformance_spans,
         pd,
         plt,
         qs,
@@ -110,14 +112,27 @@ def _(mo):
 
 
 @app.cell
-def growth_plot(mo, plt, prices):
+def growth_plot(mo, outperformance_spans, plt, prices):
     # Growth chart, rebased to 100 at the start date.
     fig, ax = plt.subplots(figsize=(12, 6))
     normalized = prices / prices.iloc[0]
     (normalized * 100).plot(ax=ax)
+
+    # Shade stretches where the second ticker out-returned the first (same helper the
+    # backtest uses to flag the episodes diversification is meant to catch).
+    first, second = prices.columns[0], prices.columns[1]
+    band = None
+    for span_start, span_end in outperformance_spans(prices[first], prices[second]):
+        band = ax.axvspan(span_start, span_end, color="#d62728", alpha=0.12, zorder=0)
+
     ax.set_xlabel("Date")
     ax.set_ylabel("Index (start = 100)")
-    ax.legend(title="ticker")
+    handles, labels = ax.get_legend_handles_labels()
+    if band is not None:
+        handles.append(band)
+        labels.append(f"{second} outperforming {first}")
+    ax.legend(handles, labels, loc="upper left")
+
     fig.tight_layout()
     mo.mpl.interactive(fig)
     return
