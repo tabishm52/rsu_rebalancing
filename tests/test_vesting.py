@@ -21,14 +21,25 @@ def _flat_prices(value: float = 10.0) -> pd.Series:
     return pd.Series(value, index=PRICE_DAYS, name="EMP")
 
 
-def _config(start_year: int = 2020, end_year: int = 2020, years: int = 4) -> GrantConfig:
+def _config(
+    start_year: int = 2020,
+    end_year: int = 2020,
+    years: int = 4,
+    growth: float = 0.0,
+) -> GrantConfig:
+    # Default to flat grants so the share-count math tests isolate the award->vest lock;
+    # wage-inflation growth gets its own dedicated test.
     return GrantConfig(
-        annual_dollars=120_000, start_year=start_year, end_year=end_year, vesting_years=years
+        grant_dollars=120_000,
+        start_year=start_year,
+        end_year=end_year,
+        vesting_years=years,
+        grant_growth_rate=growth,
     )
 
 
 def test_earliest_grant_date_is_first_award():
-    config = GrantConfig(annual_dollars=120_000, start_year=2020, end_year=2023)
+    config = GrantConfig(grant_dollars=120_000, start_year=2020, end_year=2023)
 
     got = config.earliest_grant_date
 
@@ -92,6 +103,26 @@ def test_overlapping_awards_accumulate_on_shared_vest_days():
 
     # 2019 award's 3rd tranche and 2020 award's 2nd both land on Mar 1 2022: 3,000 + 3,000.
     assert schedule[pd.Timestamp("2022-03-01")] == approx(6_000)
+
+
+def test_grant_value_grows_off_window_first_year():
+    # WINDOW opens in 2021. The anchor-year award is worth the full $120k; an award one year
+    # before the window is discounted by one growth step (here 10%).
+    anchor = build_vesting_schedule(
+        _config(start_year=2021, end_year=2021, growth=0.10),
+        _flat_prices(10.0),
+        WINDOW,
+        NO_WITHHOLDING,
+    )
+    backfilled = build_vesting_schedule(
+        _config(start_year=2020, end_year=2020, growth=0.10),
+        _flat_prices(10.0),
+        WINDOW,
+        NO_WITHHOLDING,
+    )
+
+    assert sum(anchor.values()) == approx(12_000)
+    assert sum(backfilled.values()) == approx(12_000 / 1.10)
 
 
 def test_vest_withholding_grosses_down_kept_shares():

@@ -83,7 +83,7 @@ def controls(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
     start = mo.ui.text(value="2015-01-01", label="Start date")
     end = mo.ui.text(value="2024-12-31", label="End date")
     annual_dollars = mo.ui.number(
-        value=100_000, start=0, stop=1_000_000, step=25_000, label="Annual grant $"
+        value=100_000, start=0, stop=1_000_000, step=25_000, label="First-year grant $"
     )
     vesting_years = mo.ui.slider(
         start=1,
@@ -95,6 +95,14 @@ def controls(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
     )
     backfill = mo.ui.switch(
         value=True, label="Backfill grants before window (mature employee, not new hire)"
+    )
+    grant_growth = mo.ui.slider(
+        start=0,
+        stop=10,
+        value=round(GrantConfig.grant_growth_rate * 100),
+        step=1,
+        label="Grant growth %/yr",
+        show_value=True,
     )
     threshold = mo.ui.slider(
         start=5,
@@ -163,7 +171,7 @@ def controls(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
         [
             mo.hstack([employer, index], justify="start"),
             mo.hstack([start, end], justify="start"),
-            mo.hstack([annual_dollars, vesting_years], justify="start"),
+            mo.hstack([annual_dollars, grant_growth], justify="start"),
             threshold,
             after_tax_perf,
         ]
@@ -173,7 +181,7 @@ def controls(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
             backfill,
             mo.hstack([rebalances, rebalance_band], justify="start"),
             mo.hstack([short_term_tax, long_term_tax], justify="start"),
-            mo.hstack([vest_withholding], justify="start"),
+            mo.hstack([vest_withholding, vesting_years], justify="start"),
             mo.hstack([risk_free], justify="start"),
         ]
     )
@@ -185,6 +193,7 @@ def controls(BacktestConfig, GrantConfig, StrategyConfig, TaxConfig, mo):
         backfill,
         employer,
         end,
+        grant_growth,
         index,
         long_term_tax,
         rebalance_band,
@@ -217,6 +226,7 @@ def backtest(
     backfill,
     employer,
     end,
+    grant_growth,
     index,
     long_term_tax,
     mo,
@@ -255,10 +265,11 @@ def backtest(
     # at the window start (a new hire ramping up). Either way, pre-window vests are dropped.
     grant_start_year = start_ts.year - (vesting_years.value if backfill.value else 0)
     schedule = GrantConfig(
-        annual_dollars=annual_dollars.value,
+        grant_dollars=annual_dollars.value,
         start_year=grant_start_year,
         end_year=end_ts.year,
         vesting_years=vesting_years.value,
+        grant_growth_rate=grant_growth.value / 100.0,
     )
     backtest_cfg = BacktestConfig(
         start=start_ts,

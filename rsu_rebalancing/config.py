@@ -18,27 +18,33 @@ class GrantConfig:
     expands these parameters against prices into the shares vesting on each trading day.
 
     Attributes:
-        annual_dollars: Gross value of each year's award.
+        grant_dollars: Pre-tax value of the award granted in the backtest window's
+            first year. Awards grow ``grant_growth_rate`` per year off that anchor.
         start_year: First calendar year to grant an award in (inclusive). Set this before
             the backtest window to backfill awards whose vests land inside it.
         end_year: Last calendar year to grant an award in (inclusive).
+        grant_growth_rate: Annual growth of the award's dollar value, modeling wage
+            inflation in the grant band. Compounds off the backtest window's first year.
         grant_month: Month of the award (1-12). Defaults to March.
-        grant_day: Day of month for the nominal award date. The simulator snaps this
+        grant_day: Day of month for the nominal award date. The backtest snaps this
             to the first trading day on or after it.
         vesting_years: Number of equal annual tranches each award vests over (>= 1).
     """
 
-    annual_dollars: float
+    grant_dollars: float
     start_year: int
     end_year: int
+    grant_growth_rate: float = 0.04
     grant_month: int = 3
     grant_day: int = 1
     vesting_years: int = 4
 
     def __post_init__(self) -> None:
         """Validate parameter ranges."""
-        if self.annual_dollars < 0.0:
-            raise ValueError(f"annual_dollars must be >= 0; got {self.annual_dollars}")
+        if self.grant_dollars < 0.0:
+            raise ValueError(f"grant_dollars must be >= 0; got {self.grant_dollars}")
+        if self.grant_growth_rate <= -1.0:
+            raise ValueError(f"grant_growth_rate must be > -1; got {self.grant_growth_rate}")
         if self.start_year > self.end_year:
             raise ValueError(
                 f"start_year ({self.start_year}) must be <= end_year ({self.end_year})"

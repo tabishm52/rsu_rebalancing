@@ -64,7 +64,7 @@ growth of $1) and a return/risk comparison table.
 from rsu_rebalancing import GrantConfig, StrategyConfig, BacktestConfig, run_backtest, comparison_table
 
 strategy = StrategyConfig(employer_ticker="AAPL", index_ticker="VTI", threshold=1/3)
-schedule = GrantConfig(annual_dollars=100_000, start_year=2015, end_year=2023)
+schedule = GrantConfig(grant_dollars=100_000, start_year=2015, end_year=2023)
 backtest = BacktestConfig(start="2015-01-01", end="2024-12-31", risk_free_rate=0.02)
 
 results = run_backtest(strategy, schedule, backtest)
@@ -116,11 +116,14 @@ a fair head-to-head number because every strategy receives the identical grant s
   first (minimizing realized tax for the shares sold); with cap-gains taxes off this is just
   FIFO.
 
-`GrantConfig`: `annual_dollars` (the per-award **gross** value, priced into shares at the
-award date; vest-time withholding via `ordinary_income_rate` grosses the kept count down),
-`start_year`, `end_year` (the award/employment span — set `start_year` before the window to
-backfill), and optional `grant_month`/`grant_day` (default first trading day on/after
-March 1) and `vesting_years` (equal annual tranches per award, default `4`).
+`GrantConfig`: `grant_dollars` (the **gross** value of the award in the backtest window's
+first year, priced into shares at the award date; vest-time withholding via
+`ordinary_income_rate` grosses the kept count down), `start_year`, `end_year` (the
+award/employment span — set `start_year` before the window to backfill), and optional
+`grant_month`/`grant_day` (default first trading day on/after March 1), `vesting_years`
+(equal annual tranches per award, default `4`), and `grant_growth_rate` (annual nominal
+growth of the award value, modeling wage inflation; compounds off the window's first year
+so backfilled awards are worth less, default `0.04`).
 
 `BacktestConfig`: `start`, `end`, `risk_free_rate` (for the Sharpe ratio).
 

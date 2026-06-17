@@ -40,7 +40,9 @@ def build_vesting_schedule(
 
     Each award's dollar value is converted to a share count at the award-date price, and
     that count is fixed; it then vests in equal annual tranches over the next
-    ``config.vesting_years``. The kept count is grossed down by
+    ``config.vesting_years``. ``config.grant_dollars`` is the award value in the window's
+    first year; awards grow ``config.grant_growth_rate`` per year off that anchor, so
+    backfilled awards are worth proportionally less. The kept count is grossed down by
     ``tax_config.ordinary_income_rate`` for vest-time sell-to-cover withholding.
 
     Awards may predate the window (their award-date prices fetched from before it); vests
@@ -73,6 +75,7 @@ def build_vesting_schedule(
     award_index = pd.DatetimeIndex(employer_prices.index)
     tranche_fraction = 1.0 / config.vesting_years
     kept_fraction = 1.0 - tax_config.ordinary_income_rate
+    anchor_year = window_days[0].year
 
     shares_by_day: VestingSchedule = {}
     for award_nominal in config.nominal_grant_dates():
@@ -89,7 +92,9 @@ def build_vesting_schedule(
                 "the first trading day, or shorten the backfill."
             )
 
-        total_shares = config.annual_dollars / float(employer_prices.loc[award_day]) * kept_fraction
+        years_from_anchor = award_nominal.year - anchor_year
+        award_dollars = config.grant_dollars * (1.0 + config.grant_growth_rate) ** years_from_anchor
+        total_shares = award_dollars / float(employer_prices.loc[award_day]) * kept_fraction
 
         for k in range(1, config.vesting_years + 1):
             vest_nominal = award_nominal + pd.DateOffset(years=k)
