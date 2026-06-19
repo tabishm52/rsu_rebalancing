@@ -53,6 +53,8 @@ See [README.md](README.md) for the strategy and quickstart.
   - `metrics.py` — time-weighted returns and risk stats
 - `notebooks/` — marimo notebooks (`rsu_backtest.py` is the app; `exploration.py` is a scratchpad)
 - `tests/` — pytest, network-free (synthetic prices / trading days)
+- `assets/` — `generate_assets.py` renders the README's example charts/tables from the
+  notebook defaults (run by hand; hits the network)
 
 ### Commands
 
@@ -71,6 +73,14 @@ uv run marimo edit notebooks/rsu_backtest.py
   keep it green when cheap, but don't contort code to satisfy it.
 - **Returns are time-weighted.** Grants are deposits, not performance. Any new metric
   must strip contributions (see `metrics.time_weighted_returns`) or it will be wrong.
+- **README example blocks are generated.** The charts and the `<!-- BEGIN summary:* -->`
+  tables come from `assets/generate_assets.py`; don't hand-edit them. Regenerate
+  (`uv run python assets/generate_assets.py`) whenever a change moves the numbers or the
+  figure — the notebook defaults, the `SCENARIOS`, or engine/metrics/plot output. Nothing
+  hits the network in tests or CI, so this won't fail loudly when stale. Commit the
+  refreshed README + PNGs **in the same commit** as the change that moved them, so no
+  commit leaves the README contradicting the engine; a standalone refresh (e.g. newer
+  price data, no code change) is its own `docs:` commit.
 - **Threshold targeting is pre-tax.** `sell_employer_to_fraction` sizes the trade on
   market value, then pays tax out of proceeds. With taxes on, the post-trade employer
   fraction sits slightly above the target by design — keep this intentional.
