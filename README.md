@@ -1,5 +1,7 @@
 # rsu-rebalancing
 
+[![CI](https://github.com/tabishm52/rsu_rebalancing/actions/workflows/ci.yml/badge.svg)](https://github.com/tabishm52/rsu_rebalancing/actions/workflows/ci.yml)
+
 Like many in the Bay Area, I've had the good fortune of receiving RSU compensation at a large,
 growing public company, and as such I've had to consider the high-class "problem" of whether and how
 to diversify a concentrated single-stock position. People approach this in different ways: on one
