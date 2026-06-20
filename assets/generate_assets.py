@@ -9,12 +9,19 @@ Runs the marimo notebook's default configuration headlessly, once per scenario i
 
 Everything else (grants, window, taxes) comes from the notebook's own
 ``build_backtest_controls`` / ``build_configs`` (the single source of truth), so
-regenerating here cannot drift from what the notebook shows. This hits the network
-(yfinance); run it by hand when the defaults, scenarios, or engine change:
+regenerating here cannot drift from what the notebook shows. Prices come from the
+checked-in fixture, so this is deterministic and offline; run it by hand when the
+defaults, scenarios, or engine change:
 
     uv run python assets/generate_assets.py
+
+Pass ``--refresh`` to first re-fetch the fixture from yfinance (the one networked
+path), refreshing the README against newer price data:
+
+    uv run python assets/generate_assets.py --refresh
 """
 
+import argparse
 import dataclasses
 import re
 from pathlib import Path
@@ -30,6 +37,7 @@ from rsu_app import (  # noqa: E402 - import after the Agg backend is selected
     build_performance_figure,
     format_returns_table,
 )
+from rsu_app.fixtures import patch_yf, refresh  # noqa: E402
 from rsu_rebalancing import comparison_table, run_backtest  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -99,10 +107,23 @@ def render(scenario: Scenario, controls) -> str:
 
 def main() -> None:
     """Render every scenario's chart and summary table into README.md."""
-    controls = build_backtest_controls()
-    for scenario in SCENARIOS:
-        basis = render(scenario, controls)
-        print(f"Rendered {scenario.employer}: growth-{scenario.slug}.png + table ({basis}).")
+    parser = argparse.ArgumentParser(description="Regenerate the README assets.")
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="re-fetch the price fixture from yfinance before rendering (hits the network)",
+    )
+    args = parser.parse_args()
+
+    if args.refresh:
+        refresh()
+
+    # Render against the checked-in fixture so the README is deterministic and offline.
+    with patch_yf():
+        controls = build_backtest_controls()
+        for scenario in SCENARIOS:
+            basis = render(scenario, controls)
+            print(f"Rendered {scenario.employer}: growth-{scenario.slug}.png + table ({basis}).")
 
 
 if __name__ == "__main__":

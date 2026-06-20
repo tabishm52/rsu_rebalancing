@@ -83,8 +83,8 @@ fair head-to-head number because every strategy receives the identical grant str
 
 | Metric | Hold everything | Threshold 33% | Sell all at vest |
 | --- | ---: | ---: | ---: |
-| Final portfolio value | $5,013,119 | $3,028,989 | $2,361,183 |
-| Liquidation value (net of tax) | $3,935,446 | $2,515,807 | $2,031,562 |
+| Final portfolio value | $5,013,119 | $3,028,989 | $2,361,184 |
+| Liquidation value (net of tax) | $3,935,447 | $2,515,807 | $2,031,562 |
 | Vested contributions (net of tax) | $1,196,107 | $1,196,107 | $1,196,107 |
 | Taxes paid | $939,798 | $971,100 | $939,798 |
 | Annualized return (TWR) | 24.17% | 16.68% | 12.14% |
@@ -109,10 +109,10 @@ came out ahead of full diversification on both raw and risk-adjusted return.
 
 | Metric | Hold everything | Threshold 33% | Sell all at vest |
 | --- | ---: | ---: | ---: |
-| Final portfolio value | $422,481 | $1,139,916 | $1,685,398 |
+| Final portfolio value | $422,481 | $1,139,915 | $1,685,398 |
 | Liquidation value (net of tax) | $422,481 | $980,578 | $1,429,610 |
 | Vested contributions (net of tax) | $780,527 | $780,527 | $780,527 |
-| Taxes paid | $613,272 | $616,945 | $613,272 |
+| Taxes paid | $613,272 | $616,946 | $613,272 |
 | Annualized return (TWR) | -2.69% | 7.84% | 12.14% |
 | Annualized volatility | 35.53% | 20.99% | 17.90% |
 | Max drawdown | -69.57% | -33.96% | -35.00% |
