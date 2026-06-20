@@ -31,7 +31,8 @@ def _(mo):
 @app.cell
 def imports():
     import marimo as mo
-    from _helpers import (
+
+    from rsu_app import (
         build_backtest_controls,
         build_concentration_figure,
         build_configs,
@@ -39,7 +40,6 @@ def imports():
         format_returns_table,
         format_trade_log,
     )
-
     from rsu_rebalancing import comparison_table, run_backtest
 
     return (

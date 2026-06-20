@@ -30,8 +30,8 @@ def imports():
     import pandas as pd
     import quantstats as qs
     import seaborn as sns
-    from _helpers import outperformance_spans
 
+    from rsu_app import outperformance_spans
     from rsu_rebalancing import (
         annualized_return,
         annualized_volatility,

@@ -17,26 +17,22 @@ regenerating here cannot drift from what the notebook shows. This hits the netwo
 
 import dataclasses
 import re
-import sys
 from pathlib import Path
 
 import matplotlib
 import pandas as pd
 
-matplotlib.use("Agg")  # headless: render to file, never open a window
+matplotlib.use("Agg")  # headless: must run before rsu_app pulls in pyplot
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "notebooks"))
-
-from _helpers import (  # type: ignore[import-not-found]  # noqa: E402 - runtime sys.path insert above
+from rsu_app import (  # noqa: E402 - import after the Agg backend is selected
     build_backtest_controls,
     build_configs,
     build_performance_figure,
     format_returns_table,
 )
-
 from rsu_rebalancing import comparison_table, run_backtest  # noqa: E402
 
+ROOT = Path(__file__).resolve().parent.parent
 ASSETS = Path(__file__).resolve().parent
 README = ROOT / "README.md"
 
