@@ -200,19 +200,21 @@ def build_configs(
         index_ticker=c.index.value,
         threshold=c.threshold.value / 100.0,
         rebalance_band=c.rebalance_band.value / 100.0,
-        rebalances_per_quarter=c.rebalances.value,
+        rebalances_per_quarter=int(c.rebalances.value),
         tax_config=tax_config,
     )
 
     # Backfill makes grants begin vesting_years before the window so its first year opens
     # at steady-state overlapping vests (a mature employee). Otherwise, the first grant
     # lands at the window start (a new hire ramping up).
-    grant_start_year = start_ts.year - (c.vesting_years.value if c.backfill.value else 0)
+    vesting_years = int(c.vesting_years.value)
+    grant_start_year = start_ts.year - (vesting_years if c.backfill.value else 0)
     grant_cfg = GrantConfig(
-        grant_dollars=c.annual_dollars.value,
+        # The number widget is seeded and floored at 0, so .value is never None here.
+        grant_dollars=float(c.annual_dollars.value),  # type: ignore[arg-type]
         start_year=grant_start_year,
         end_year=end_ts.year,
-        vesting_years=c.vesting_years.value,
+        vesting_years=vesting_years,
         grant_growth_rate=c.grant_growth.value / 100.0,
     )
 

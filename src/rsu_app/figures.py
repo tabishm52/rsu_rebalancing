@@ -1,9 +1,4 @@
-"""Matplotlib figures for the backtest notebook.
-
-The concentration and performance charts the notebook renders, plus the
-``outperformance_spans`` helper that shades the stretches where the index out-returned
-the employer stock.
-"""
+"""Matplotlib figures for the backtest notebook."""
 
 from typing import TYPE_CHECKING
 
@@ -36,7 +31,7 @@ def build_concentration_figure(result: BacktestResult, threshold: float) -> Figu
     pre_sale_frac = frac.shift(1).loc[sale_dates]
 
     fig, ax = plt.subplots(figsize=(12, 5))
-    ax.plot(frac.index, frac.values, color="#d62728")
+    ax.plot(frac.index, frac.values, color="#d62728")  # type: ignore[arg-type]
     ax.axhline(threshold, linestyle="--", color="gray")
     ax.scatter(
         sale_dates,
@@ -55,7 +50,13 @@ def build_concentration_figure(result: BacktestResult, threshold: float) -> Figu
     return fig
 
 
-def outperformance_spans(employer, index, lookback=63, min_days=90, gap_days=10):
+def outperformance_spans(
+    employer: pd.Series,
+    index: pd.Series,
+    lookback: int = 63,
+    min_days: int = 90,
+    gap_days: int = 10,
+) -> list[tuple[pd.Timestamp, pd.Timestamp]]:
     """Date spans where the index has out-returned the employer stock.
 
     A day is "index-ahead" when the index's return over the trailing ``lookback`` *trading*
@@ -72,7 +73,7 @@ def outperformance_spans(employer, index, lookback=63, min_days=90, gap_days=10)
     ahead = employer.pct_change(lookback) < index.pct_change(lookback)
     runs = (ahead != ahead.shift()).cumsum()
     segments = [(run.index[0], run.index[-1]) for _, run in ahead.groupby(runs) if run.iloc[0]]
-    spans = []
+    spans: list[tuple[pd.Timestamp, pd.Timestamp]] = []
     for start, end in segments:
         if spans and (start - spans[-1][1]).days <= gap_days:
             spans[-1] = (spans[-1][0], end)
@@ -116,7 +117,8 @@ def build_performance_figure(
     (growth_df * 100).plot(ax=ax)
     band = None
     for start, end in spans:
-        band = ax.axvspan(start, end, color="#d62728", alpha=0.12, zorder=0)
+        # axvspan accepts datetime-like x at runtime; the stub only admits float.
+        band = ax.axvspan(start, end, color="#d62728", alpha=0.12, zorder=0)  # type: ignore[arg-type]
     ax.set_xlabel("Date")
     ax.set_ylabel(f"Index, start = 100 ({basis}, time-weighted)")
     handles, labels = ax.get_legend_handles_labels()
