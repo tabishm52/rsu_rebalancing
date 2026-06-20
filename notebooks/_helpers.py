@@ -361,11 +361,12 @@ def format_returns_table(table: pd.DataFrame) -> pd.DataFrame:
     formatters = {
         "Final portfolio value": "${:,.0f}".format,
         "Liquidation value (net of tax)": "${:,.0f}".format,
-        "Total vested contributions": "${:,.0f}".format,
-        "Ann. return (TWR)": "{:.2%}".format,
-        "Ann. volatility": "{:.2%}".format,
+        "Vested contributions (net of tax)": "${:,.0f}".format,
+        "Taxes paid": "${:,.0f}".format,
+        "Annualized return (TWR)": "{:.2%}".format,
+        "Annualized volatility": "{:.2%}".format,
         "Max drawdown": "{:.2%}".format,
-        "Sharpe": "{:.2f}".format,
+        "Sharpe ratio": "{:.2f}".format,
         "End employer %": "{:.1%}".format,
     }
     # Build an object-dtype frame of formatted strings (rows = metrics, cols = strategies).

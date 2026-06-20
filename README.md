@@ -85,11 +85,12 @@ fair head-to-head number because every strategy receives the identical grant str
 | --- | ---: | ---: | ---: |
 | Final portfolio value | $5,013,119 | $3,028,989 | $2,361,183 |
 | Liquidation value (net of tax) | $3,935,446 | $2,515,807 | $2,031,562 |
-| Total vested contributions | $1,196,107 | $1,196,107 | $1,196,107 |
-| Ann. return (TWR) | 24.17% | 16.68% | 12.14% |
-| Ann. volatility | 28.21% | 19.96% | 17.90% |
+| Vested contributions (net of tax) | $1,196,107 | $1,196,107 | $1,196,107 |
+| Taxes paid | $939,798 | $971,100 | $939,798 |
+| Annualized return (TWR) | 24.17% | 16.68% | 12.14% |
+| Annualized volatility | 28.21% | 19.96% | 17.90% |
 | Max drawdown | -38.52% | -33.58% | -35.00% |
-| Sharpe | 0.84 | 0.77 | 0.62 |
+| Sharpe ratio | 0.84 | 0.77 | 0.62 |
 | End employer % | 100.0% | 37.7% | 0.0% |
 
 <!-- END summary:aapl -->
@@ -108,13 +109,14 @@ came out ahead of full diversification on both raw and risk-adjusted return.
 
 | Metric | Hold everything | Threshold 33% | Sell all at vest |
 | --- | ---: | ---: | ---: |
-| Final portfolio value | $422,481 | $1,139,915 | $1,685,398 |
+| Final portfolio value | $422,481 | $1,139,916 | $1,685,398 |
 | Liquidation value (net of tax) | $422,481 | $980,578 | $1,429,610 |
-| Total vested contributions | $780,527 | $780,527 | $780,527 |
-| Ann. return (TWR) | -2.69% | 7.84% | 12.14% |
-| Ann. volatility | 35.53% | 20.99% | 17.90% |
+| Vested contributions (net of tax) | $780,527 | $780,527 | $780,527 |
+| Taxes paid | $613,272 | $616,945 | $613,272 |
+| Annualized return (TWR) | -2.69% | 7.84% | 12.14% |
+| Annualized volatility | 35.53% | 20.99% | 17.90% |
 | Max drawdown | -69.57% | -33.96% | -35.00% |
-| Sharpe | 0.05 | 0.37 | 0.62 |
+| Sharpe ratio | 0.05 | 0.37 | 0.62 |
 | End employer % | 100.0% | 18.8% | 0.0% |
 
 <!-- END summary:intc -->

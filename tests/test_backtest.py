@@ -38,15 +38,15 @@ def test_run_backtest_keys_each_rule_by_name(monkeypatch):
 def test_run_backtest_feeds_identical_grants_to_every_strategy(monkeypatch):
     results = _run_backtest(monkeypatch)
 
-    grants = [result.gross_grants for result in results.values()]
+    grants = [result.vested_contributions for result in results.values()]
     for other in grants[1:]:
         pd.testing.assert_series_equal(other, grants[0])
 
 
-def test_gross_grants_count_only_grants():
-    # gross_grants is the "total contributed" reporting figure: only grant traded_value,
-    # summed per day and aligned (zero-filled) to market.values.index. Rebalances and tax
-    # are not contributions.
+def test_vested_contributions_count_only_grants():
+    # vested_contributions is the "total contributed" reporting figure: only grant
+    # traded_value, summed per day and aligned (zero-filled) to market.values.index.
+    # Rebalances and tax are not contributions.
     trades = pd.DataFrame(
         {
             "kind": ["grant", "grant", "rebalance"],
@@ -62,9 +62,36 @@ def test_gross_grants_count_only_grants():
         trades=trades,
     )
 
-    grants = result.gross_grants
+    grants = result.vested_contributions
 
     assert list(grants.index) == list(_DATES[:3])
     assert grants.iloc[0] == approx(150.0)  # two grants on day 0, summed
     assert grants.iloc[1] == 0.0  # rebalance is not a contribution
     assert grants.iloc[2] == 0.0  # no trades -> filled with 0
+
+
+def test_taxes_paid_sums_every_kind_per_day():
+    # taxes_paid is the "total taxes actually paid" figure: every row's tax_paid (grant
+    # withholding plus realized cap-gains on sales), summed per day and aligned (zero-filled)
+    # to market.values.index. The hypothetical end-of-run liquidation tax is not included.
+    trades = pd.DataFrame(
+        {
+            "kind": ["grant", "rebalance", "grant"],
+            "date": [_DATES[0], _DATES[0], _DATES[1]],
+            "traded_value": [100.0, 200.0, 50.0],
+            "tax_paid": [10.0, 30.0, 5.0],
+        }
+    )
+    result = BacktestResult(
+        name="x",
+        description="x",
+        market=PerfSeries(values=pd.Series(0.0, index=_DATES[:3])),
+        trades=trades,
+    )
+
+    taxes = result.taxes_paid
+
+    assert list(taxes.index) == list(_DATES[:3])
+    assert taxes.iloc[0] == approx(40.0)  # grant withholding 10 + rebalance tax 30
+    assert taxes.iloc[1] == approx(5.0)  # grant withholding on day 1
+    assert taxes.iloc[2] == 0.0  # no trades -> filled with 0

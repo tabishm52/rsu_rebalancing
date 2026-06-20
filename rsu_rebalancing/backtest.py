@@ -65,16 +65,26 @@ class BacktestResult:
     final_portfolio: Portfolio = field(default_factory=Portfolio)
 
     @property
-    def gross_grants(self) -> pd.Series:
-        """Gross grant dollars per day, recovered from the trade log.
+    def vested_contributions(self) -> pd.Series:
+        """Net vested contribution dollars per day, recovered from the trade log.
 
         The dollar value of the shares actually vested into the portfolio, summed per day
-        and aligned to ``market.values.index`` (zero-filled). This value reflects vest-time
-        withholding (sell-to-cover), but excludes any subsequent gains or losses. Recomputed
+        and aligned to ``market.values.index`` (zero-filled). This is net of vest-time
+        withholding (sell-to-cover), and excludes any subsequent gains or losses. Recomputed
         on each access.
         """
         grants = self.trades.loc[self.trades["kind"] == "grant", ["date", "traded_value"]]
         by_day = grants.groupby("date")["traded_value"].sum()
+        return by_day.reindex(self.market.values.index, fill_value=0.0)
+
+    @property
+    def taxes_paid(self) -> pd.Series:
+        """Taxes actually paid per day, recovered from the trade log.
+
+        Every row's ``tax_paid``, summed per day and aligned to ``market.values.index``
+        (zero-filled). Recomputed on each access.
+        """
+        by_day = self.trades.groupby("date")["tax_paid"].sum()
         return by_day.reindex(self.market.values.index, fill_value=0.0)
 
 
