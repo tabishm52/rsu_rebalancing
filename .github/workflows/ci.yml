@@ -31,3 +31,10 @@ jobs:
 
       - name: Test
         run: uv run pytest -q
+
+      - name: README assets up to date
+        # Regenerate the README tables from the price fixture (offline) and fail if they
+        # drifted. PNGs are regenerated in the same pass but not byte-diffed.
+        run: |
+          uv run python assets/generate_assets.py
+          git diff --exit-code -- README.md

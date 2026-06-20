@@ -68,7 +68,8 @@ uv run marimo edit notebooks/rsu_backtest.py
 
 ### Conventions & gotchas
 
-- **uv is the toolchain; ruff (lint + format), mypy, and pytest all gate CI.**
+- **uv is the toolchain; ruff (lint + format), mypy, pytest, and a README-freshness
+  check (regenerate from the price fixture, diff `README.md`) all gate CI.**
 - **mypy is pragmatic, not strict.** It covers the library, asset script, and tests (not
   notebooks); when types fight you, prefer a targeted override over contorting code.
 - **Returns are time-weighted.** Grants are deposits, not performance. Any new metric
