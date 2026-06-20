@@ -54,20 +54,16 @@ ignore = [
 convention = "google"
 
 [tool.mypy]
-# Lenient by design: type annotations aid readability/editor help, but type
-# checkers catch little inside pandas pipelines. This is a learning aid, not a gate.
+# Notebooks excluded: untypable marimo/matplotlib UI glue
 python_version = "3.14"
-files = ["rsu_rebalancing"]
-ignore_missing_imports = true
-warn_unused_ignores = false
+files = ["rsu_rebalancing", "assets", "tests"]
+warn_unused_ignores = true
 check_untyped_defs = true
 
-# quantstats ships a py.typed marker but annotates its stats functions as
-# `float | Series`, so wrapping a known-scalar result in float() trips arg-type.
-# Treat it as untyped (its exports become Any) rather than scatter inline ignores.
 [[tool.mypy.overrides]]
-module = "quantstats.*"
-follow_imports = "skip"
+# yfinance ships no stubs or py.typed marker
+module = "yfinance.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

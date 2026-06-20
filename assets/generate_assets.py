@@ -28,7 +28,7 @@ matplotlib.use("Agg")  # headless: render to file, never open a window
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "notebooks"))
 
-from _helpers import (  # noqa: E402 - sys.path must be set before this import
+from _helpers import (  # type: ignore[import-not-found]  # noqa: E402 - runtime sys.path insert above
     build_backtest_controls,
     build_configs,
     build_performance_figure,
