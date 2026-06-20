@@ -21,7 +21,7 @@ dependencies = [
 dev = [
     "pytest",
     "ruff",
-    "mypy",
+    "pyright",
     "pandas-stubs",
     "pyarrow",  # read/write the checked-in price fixture (tests + offline asset gen)
 ]
@@ -54,17 +54,12 @@ ignore = [
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.mypy]
+[tool.pyright]
 # Notebooks excluded: untypable marimo/matplotlib UI glue
-python_version = "3.14"
-files = ["src/rsu_rebalancing", "src/rsu_app", "assets", "tests"]
-warn_unused_ignores = true
-check_untyped_defs = true
-
-[[tool.mypy.overrides]]
-# yfinance and seaborn ship no stubs or py.typed marker
-module = ["yfinance.*", "seaborn.*"]
-ignore_missing_imports = true
+pythonVersion = "3.14"
+include = ["src/rsu_rebalancing", "src/rsu_app", "assets", "tests"]
+typeCheckingMode = "basic"
+reportUnnecessaryTypeIgnoreComment = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

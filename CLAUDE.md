@@ -65,16 +65,17 @@ See [README.md](README.md) for the strategy and quickstart.
 uv sync --extra dev                 # set up the environment
 uv run pytest -q                    # tests (no network)
 uv run ruff check . && uv run ruff format --check .
-uv run mypy                         # gates CI; pragmatic, not strict (see below)
+uv run pyright                      # gates CI; pragmatic, not strict (see below)
 uv run marimo edit notebooks/rsu_backtest.py
 ```
 
 ### Conventions & gotchas
 
-- **uv is the toolchain; ruff (lint + format), mypy, pytest, and a README-freshness
-  check (regenerate from the price fixture, diff `README.md`) all gate CI.**
-- **mypy is pragmatic, not strict.** It covers the library, asset script, and tests (not
-  notebooks); when types fight you, prefer a targeted override over contorting code.
+- **uv is the toolchain.** ruff (lint + format), pyright, pytest, and a README-freshness
+  check (regenerate from the price fixture, diff `README.md`) all gate CI.
+- **pyright is pragmatic, not strict.** It covers the library, asset script, and tests
+  (not notebooks); when types fight you, prefer a targeted `# pyright: ignore[...]` over
+  contorting code.
 - **Returns are time-weighted.** Grants are deposits, not performance. Any new metric
   must strip contributions (see `metrics.time_weighted_returns`) or it will be wrong.
 - **README example blocks are generated.** The charts and `<!-- BEGIN summary:* -->`

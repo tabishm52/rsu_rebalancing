@@ -1,6 +1,7 @@
 """The backtest notebook's control panel and its assembly into engine configs."""
 
 from dataclasses import dataclass
+from typing import cast
 
 import marimo as mo
 import pandas as pd
@@ -210,8 +211,7 @@ def build_configs(
     vesting_years = int(c.vesting_years.value)
     grant_start_year = start_ts.year - (vesting_years if c.backfill.value else 0)
     grant_cfg = GrantConfig(
-        # The number widget is seeded and floored at 0, so .value is never None here.
-        grant_dollars=float(c.annual_dollars.value),  # type: ignore[arg-type]
+        grant_dollars=cast(float, c.annual_dollars.value),
         start_year=grant_start_year,
         end_year=end_ts.year,
         vesting_years=vesting_years,

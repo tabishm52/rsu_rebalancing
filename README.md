@@ -229,7 +229,7 @@ slider in the notebook doesn't re-hit the network.
 ```bash
 uv run pytest -q                                     # tests (no network needed)
 uv run ruff check . && uv run ruff format --check .  # lint + format
-uv run mypy                                          # lenient type check
+uv run pyright                                       # type check
 ```
 
 See [CLAUDE.md](CLAUDE.md) for the project layout and conventions.

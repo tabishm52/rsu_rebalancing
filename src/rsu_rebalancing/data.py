@@ -5,6 +5,7 @@ Fetched prices are memoized in-memory for the session, so repeating a request
 """
 
 from functools import lru_cache
+from typing import cast
 
 import pandas as pd
 import yfinance as yf
@@ -40,7 +41,8 @@ def _get_prices_cached(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> p
 
     close = frame["Close"].copy()
     # Drop timezone so the index is plain calendar dates, easy to align and compare.
-    close.index = close.index.tz_localize(None).normalize()
+    idx = cast(pd.DatetimeIndex, close.index)
+    close.index = idx.tz_localize(None).normalize()
     close.name = ticker.upper()
     return close
 

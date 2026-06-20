@@ -31,7 +31,7 @@ def build_concentration_figure(result: BacktestResult, threshold: float) -> Figu
     pre_sale_frac = frac.shift(1).loc[sale_dates]
 
     fig, ax = plt.subplots(figsize=(12, 5))
-    ax.plot(frac.index, frac.values, color="#d62728")  # type: ignore[arg-type]
+    ax.plot(frac.index.to_numpy(), frac.to_numpy(), color="#d62728")
     ax.axhline(threshold, linestyle="--", color="gray")
     ax.scatter(
         sale_dates,
@@ -118,7 +118,7 @@ def build_performance_figure(
     band = None
     for start, end in spans:
         # axvspan accepts datetime-like x at runtime; the stub only admits float.
-        band = ax.axvspan(start, end, color="#d62728", alpha=0.12, zorder=0)  # type: ignore[arg-type]
+        band = ax.axvspan(start, end, color="#d62728", alpha=0.12, zorder=0)  # pyright: ignore[reportArgumentType]
     ax.set_xlabel("Date")
     ax.set_ylabel(f"Index, start = 100 ({basis}, time-weighted)")
     handles, labels = ax.get_legend_handles_labels()

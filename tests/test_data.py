@@ -56,7 +56,8 @@ def test_get_prices_returns_named_tz_naive_series(monkeypatch):
     series = data.get_prices("AAA", "2020-01-02", "2020-01-03")
 
     assert series.name == "AAA"
-    assert series.index.tz is None  # type: ignore[attr-defined]  # pandas-stubs types .index as Index, not DatetimeIndex
+    assert isinstance(series.index, pd.DatetimeIndex)
+    assert series.index.tz is None
     assert series.tolist() == [10.0, 11.0]
 
 
