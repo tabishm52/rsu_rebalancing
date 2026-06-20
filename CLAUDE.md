@@ -51,10 +51,13 @@ See [README.md](README.md) for the strategy and quickstart.
   - `strategy.py` — the threshold rule + `HoldEverything` / `SellAllAtVest` baselines
   - `backtest.py` — the day-by-day engine; `run_backtest` is the top-level entry point
   - `metrics.py` — time-weighted returns and risk stats
+- `src/rsu_app/` — presentation layer for the marimo notebook, so the cells stay short
+  - `controls.py` / `figures.py` / `tables.py` — the control panel, charts, and table formatting
+  - `fixtures.py` — the frozen AAPL/INTC/VTI price snapshot; patches `data` to run offline
 - `notebooks/` — marimo notebooks (`rsu_backtest.py` is the app; `exploration.py` is a scratchpad)
 - `tests/` — pytest, network-free (synthetic prices / trading days)
 - `assets/` — `generate_assets.py` renders the README's example charts/tables from the
-  notebook defaults, offline from the checked-in price fixture (`--refresh` re-fetches it)
+  notebook defaults, offline from the `rsu_app.fixtures` price snapshot (`--refresh` re-fetches it)
 
 ### Commands
 
