@@ -62,15 +62,15 @@ See [README.md](README.md) for the strategy and quickstart.
 uv sync --extra dev                 # set up the environment
 uv run pytest -q                    # tests (no network)
 uv run ruff check . && uv run ruff format --check .
-uv run mypy                         # lenient; see below
+uv run mypy                         # gates CI; pragmatic, not strict (see below)
 uv run marimo edit notebooks/rsu_backtest.py
 ```
 
 ### Conventions & gotchas
 
-- **uv + ruff** are the toolchain. Ruff (lint + format) is the quality gate.
-- **mypy is lenient and not a gate.** Annotations are for readability and editor help;
-  keep it green when cheap, but don't contort code to satisfy it.
+- **uv is the toolchain; ruff (lint + format), mypy, and pytest all gate CI.**
+- **mypy is pragmatic, not strict.** It covers the library, asset script, and tests (not
+  notebooks); when types fight you, prefer a targeted override over contorting code.
 - **Returns are time-weighted.** Grants are deposits, not performance. Any new metric
   must strip contributions (see `metrics.time_weighted_returns`) or it will be wrong.
 - **README example blocks are generated.** The charts and the `<!-- BEGIN summary:* -->`
