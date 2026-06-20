@@ -23,6 +23,7 @@ dev = [
     "ruff",
     "mypy",
     "pandas-stubs",
+    "pyarrow",  # read/write the checked-in price fixture (tests + offline asset gen)
 ]
 
 [build-system]
