@@ -179,20 +179,26 @@ class BacktestConfig:
 
     start: pd.Timestamp
     end: pd.Timestamp
-    risk_free_rate: float
-    after_tax_performance: bool
+    risk_free_rate: float = 0.02
+    after_tax_performance: bool = False
 
     def __init__(
         self,
-        start: str | pd.Timestamp,
-        end: str | pd.Timestamp,
-        risk_free_rate: float = 0.02,
-        after_tax_performance: bool = False,
+        start: pd.Timestamp | str,
+        end: pd.Timestamp | str,
+        risk_free_rate: float | None = None,
+        after_tax_performance: bool | None = None,
     ) -> None:
-        """Normalize loose dates to tz-naive Timestamps and validate order."""
+        """Normalize loose dates to tz-naive Timestamps and validate order.
+
+        ``risk_free_rate`` and ``after_tax_performance`` left as ``None`` fall back to the
+        class-level field defaults.
+        """
         object.__setattr__(self, "start", pd.Timestamp(start).normalize())
         object.__setattr__(self, "end", pd.Timestamp(end).normalize())
-        object.__setattr__(self, "risk_free_rate", risk_free_rate)
-        object.__setattr__(self, "after_tax_performance", after_tax_performance)
+        if risk_free_rate is not None:
+            object.__setattr__(self, "risk_free_rate", risk_free_rate)
+        if after_tax_performance is not None:
+            object.__setattr__(self, "after_tax_performance", after_tax_performance)
         if self.start >= self.end:
             raise ValueError(f"start ({self.start.date()}) must be before end ({self.end.date()})")
