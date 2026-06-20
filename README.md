@@ -184,7 +184,7 @@ backtest years — see the parameters section below for more explanation.
 These are the knobs the notebook exposes, in the same two groups it uses: the everyday ones up top,
 the fussy details under "Extra settings". Each maps to a field on one of the config dataclasses for
 the Python API. For additional details and a few settings that are not exposed to the notebook, see
-the dataclass docstrings in [rsu_rebalancing/config.py](rsu_rebalancing/config.py).
+the dataclass docstrings in [src/rsu_rebalancing/config.py](src/rsu_rebalancing/config.py).
 
 ### Main knobs
 

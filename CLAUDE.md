@@ -42,7 +42,7 @@ See [README.md](README.md) for the strategy and quickstart.
 
 ### Layout
 
-- `rsu_rebalancing/` — the library
+- `src/rsu_rebalancing/` — the library
   - `config.py` — frozen dataclasses (`GrantConfig`, `StrategyConfig`, `BacktestConfig`)
   - `data.py` — yfinance access, in-memory memoized
   - `calendar.py` — pure functions mapping rebalances onto trading days
