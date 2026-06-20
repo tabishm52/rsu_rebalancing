@@ -73,8 +73,8 @@ class BacktestResult:
         withholding (sell-to-cover), but excludes any subsequent gains or losses. Recomputed
         on each access.
         """
-        grants = self.trades.loc[self.trades["kind"] == "grant", ["date", "gross_value"]]
-        by_day = grants.groupby("date")["gross_value"].sum()
+        grants = self.trades.loc[self.trades["kind"] == "grant", ["date", "traded_value"]]
+        by_day = grants.groupby("date")["traded_value"].sum()
         return by_day.reindex(self.market.values.index, fill_value=0.0)
 
 
@@ -204,7 +204,7 @@ def run_backtest(
     award_prices = get_prices(
         strategy.employer_ticker, grant_config.earliest_grant_date, backtest.end
     )
-    vesting = build_vesting_schedule(grant_config, award_prices, trading_days, strategy.tax_config)
+    vesting = build_vesting_schedule(grant_config, award_prices, trading_days)
     rebalance_days = rebalance_trade_dates(
         trading_days, strategy.rebalances_per_quarter, backtest.start, backtest.end
     )

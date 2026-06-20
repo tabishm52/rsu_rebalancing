@@ -44,14 +44,14 @@ def test_run_backtest_feeds_identical_grants_to_every_strategy(monkeypatch):
 
 
 def test_gross_grants_count_only_grants():
-    # gross_grants is the "total contributed" reporting figure: only grant gross_value,
+    # gross_grants is the "total contributed" reporting figure: only grant traded_value,
     # summed per day and aligned (zero-filled) to market.values.index. Rebalances and tax
     # are not contributions.
     trades = pd.DataFrame(
         {
             "kind": ["grant", "grant", "rebalance"],
             "date": [_DATES[0], _DATES[0], _DATES[1]],
-            "gross_value": [100.0, 50.0, 200.0],
+            "traded_value": [100.0, 50.0, 200.0],
             "tax_paid": [0.0, 0.0, 30.0],
         }
     )

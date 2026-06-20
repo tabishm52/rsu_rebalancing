@@ -41,10 +41,13 @@ class TradeRecord:
     Attributes:
         date: Trade date.
         kind: What the trade represents.
-        employer_shares: Employer shares transacted, signed: ``+`` on a grant, ``-`` on a sale.
+        employer_shares: Employer shares transacted, signed: positive for a grant (net of
+            taxes), negative on a sale.
         employer_price: Employer share price at the trade.
-        gross_value: Absolute dollar value transacted in employer stock.
-        tax_paid: Capital-gains tax paid out of the sale proceeds.
+        traded_value: Market value of the employer shares moved on this trade: the kept value
+            on a grant, or the proceeds on a sale.
+        tax_paid: Tax paid out at the trade: ordinary-income withholding on a grant, or
+            capital-gains tax out of the proceeds on a sale.
         index_dollars_in: Net dollars moved into the index position.
     """
 
@@ -52,7 +55,7 @@ class TradeRecord:
     kind: Literal["grant", "rebalance", "liquidate"]
     employer_shares: float
     employer_price: float
-    gross_value: float
+    traded_value: float
     tax_paid: float
     index_dollars_in: float
 
@@ -100,18 +103,32 @@ class Portfolio:
             return 0.0
         return self.employer_value(employer_price) / total
 
-    def add_grant(self, date: pd.Timestamp, shares: float, employer_price: float) -> TradeRecord:
-        """Vest ``shares`` of employer stock at ``employer_price`` as a new lot."""
+    def add_grant(
+        self,
+        date: pd.Timestamp,
+        shares: float,
+        employer_price: float,
+        tax_config: TaxConfig,
+    ) -> TradeRecord:
+        """Vest ``shares`` of employer stock at ``employer_price``, net of sell-to-cover.
+
+        ``shares`` is the *gross* count vesting. Vest income is ordinary income, so shares are
+        withheld via sell-to-cover at ``tax_config.ordinary_income_rate``, leaving the
+        remainder as the new lot.
+        """
+        rate = tax_config.ordinary_income_rate
+        kept_shares = shares * (1.0 - rate)
+        tax_paid = shares * employer_price * rate
         self.employer_lots.append(
-            TaxLot(shares=shares, cost_per_share=employer_price, acquisition_date=date)
+            TaxLot(shares=kept_shares, cost_per_share=employer_price, acquisition_date=date)
         )
         return TradeRecord(
             date=date,
             kind="grant",
-            employer_shares=shares,
+            employer_shares=kept_shares,
             employer_price=employer_price,
-            gross_value=shares * employer_price,
-            tax_paid=0.0,
+            traded_value=kept_shares * employer_price,
+            tax_paid=tax_paid,
             index_dollars_in=0.0,
         )
 
@@ -226,7 +243,7 @@ class Portfolio:
             kind="liquidate" if target_fraction == 0.0 else "rebalance",
             employer_shares=-shares_to_sell,
             employer_price=employer_price,
-            gross_value=proceeds,
+            traded_value=proceeds,
             tax_paid=tax_paid,
             index_dollars_in=net,
         )

@@ -40,6 +40,20 @@ def test_sell_all_at_vest_holds_no_employer_after_grant():
     assert {"grant", "liquidate"} <= set(result.trades["kind"])
 
 
+def test_grant_withholds_at_the_configured_ordinary_rate():
+    # The engine threads its tax_config into step(), so the grant row carries the
+    # sell-to-cover withholding and the kept shares are grossed down.
+    tax = TaxConfig(ordinary_income_rate=0.25)
+
+    result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], HoldEverything(), tax)
+    grant = result.trades.loc[result.trades["kind"] == "grant"].iloc[0]
+
+    # 2000 gross sh @ $11: 25% withheld -> 1500 kept and $5,500 of tax documented.
+    assert grant["employer_shares"] == approx(1_500)
+    assert grant["tax_paid"] == approx(5_500)
+    assert result.final_portfolio.employer_shares == approx(1_500)
+
+
 def test_rules_describe_their_target_mix():
     got = [
         HoldEverything().describe("EMP", "IDX"),
@@ -178,7 +192,8 @@ def test_realized_tax_is_a_flow_not_a_return():
     # A rebalance realizes gains and pays tax while the price is flat. Tax leaving the
     # portfolio is a withdrawal, so the day's time-weighted return is ~0 -- not a loss the
     # size of the tax.
-    tax = TaxConfig(short_term_rate=0.2)
+    # Ordinary-income rate 0 so the grant vests at full size, isolating the rebalance tax.
+    tax = TaxConfig(short_term_rate=0.2, ordinary_income_rate=0.0)
     rule = ThresholdRebalance(threshold=1 / 3, band=0.0)
 
     result = run_rule(_FLOW_PRICES, "EMP", "IDX", _FLOW_GRANTS, [_FLOW_REBALANCE], rule, tax)
@@ -189,7 +204,8 @@ def test_realized_tax_is_a_flow_not_a_return():
 
 
 def test_grant_is_a_flow_and_price_move_is_a_return():
-    tax = TaxConfig(short_term_rate=0.2)
+    # Ordinary-income rate 0 so the grant inflow is its full $20k, isolating the flow check.
+    tax = TaxConfig(short_term_rate=0.2, ordinary_income_rate=0.0)
     rule = ThresholdRebalance(threshold=1 / 3, band=0.0)
 
     result = run_rule(_FLOW_PRICES, "EMP", "IDX", _FLOW_GRANTS, [_FLOW_REBALANCE], rule, tax)
@@ -221,7 +237,10 @@ def test_net_basis_strips_short_to_long_term_drift():
     dates = pd.DatetimeIndex(["2020-01-01", "2020-12-31", "2021-01-01"])
     prices = pd.DataFrame({"EMP": [10.0, 15.0, 15.0], "IDX": [100.0] * 3}, index=dates)
     grants = {dates[0]: 1000.0}  # 1000 sh, vesting at $10, $5/sh gain at $15
-    tax = TaxConfig(short_term_rate=0.4, long_term_rate=0.2, long_term_days=365)
+    # Ordinary-income rate 0 so all 1000 shares vest, isolating the cap-gains tax drift.
+    tax = TaxConfig(
+        short_term_rate=0.4, long_term_rate=0.2, long_term_days=365, ordinary_income_rate=0.0
+    )
 
     result = run_rule(prices, "EMP", "IDX", grants, [], HoldEverything(), tax)
     returns = time_weighted_returns(result.net_of_tax)

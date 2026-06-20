@@ -93,7 +93,9 @@ class ThresholdRebalance:
         trades: list[TradeRecord] = []
 
         if day.grant_shares is not None:
-            trades.append(portfolio.add_grant(day.date, day.grant_shares, day.employer_price))
+            trades.append(
+                portfolio.add_grant(day.date, day.grant_shares, day.employer_price, tax_config)
+            )
 
         if day.is_rebalance_day:
             fraction = portfolio.employer_fraction(day.employer_price, day.index_price)
@@ -127,10 +129,10 @@ class HoldEverything:
     def step(
         self, portfolio: Portfolio, day: TradingDay, tax_config: TaxConfig
     ) -> list[TradeRecord]:
-        """Vest any grant; never sell (so ``tax_config`` is unused)."""
+        """Vest any grant (withholding sell-to-cover); never sell otherwise."""
         if day.grant_shares is None:
             return []
-        return [portfolio.add_grant(day.date, day.grant_shares, day.employer_price)]
+        return [portfolio.add_grant(day.date, day.grant_shares, day.employer_price, tax_config)]
 
 
 class SellAllAtVest:
@@ -152,7 +154,7 @@ class SellAllAtVest:
         if day.grant_shares is None:
             return []
 
-        trades = [portfolio.add_grant(day.date, day.grant_shares, day.employer_price)]
+        trades = [portfolio.add_grant(day.date, day.grant_shares, day.employer_price, tax_config)]
 
         trade = portfolio.sell_employer_to_fraction(
             day.date, 0.0, day.employer_price, day.index_price, tax_config

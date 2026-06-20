@@ -8,14 +8,33 @@ from rsu_rebalancing.portfolio import Portfolio
 
 DATE = pd.Timestamp("2020-03-02")
 
+# Lot-setup grants withhold nothing, so a grant of N shares lands N shares to test sells
+# against; the withholding haircut has its own dedicated test.
+NO_WITHHOLDING = TaxConfig(ordinary_income_rate=0.0)
+
 
 def test_grant_adds_shares_at_price():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=10_000, employer_price=9.0)
+    pf.add_grant(DATE, shares=10_000, employer_price=9.0, tax_config=NO_WITHHOLDING)
 
     assert pf.employer_shares == 10_000
     assert pf.employer_value(9.0) == 90_000
     assert pf.employer_fraction(9.0, index_price=100.0) == 1.0
+
+
+def test_grant_withholds_sell_to_cover_and_records_the_tax():
+    pf = Portfolio()
+
+    trade = pf.add_grant(
+        DATE, shares=10_000, employer_price=10.0, tax_config=TaxConfig(ordinary_income_rate=0.25)
+    )
+
+    # Gross vest is 10,000 sh @ $10 = $100k; a 25% sell-to-cover slice is withheld, so 7,500
+    # shares are kept and the $25k of withholding is documented on the row.
+    assert pf.employer_shares == approx(7_500)
+    assert trade.employer_shares == approx(7_500)
+    assert trade.traded_value == approx(75_000)
+    assert trade.tax_paid == approx(25_000)
 
 
 def test_empty_portfolio_fraction_is_zero():
@@ -27,7 +46,9 @@ def test_empty_portfolio_fraction_is_zero():
 
 def test_sell_to_fraction_hits_target_without_tax():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=10_000, employer_price=9.0)  # all employer, $90k
+    pf.add_grant(
+        DATE, shares=10_000, employer_price=9.0, tax_config=NO_WITHHOLDING
+    )  # all employer, $90k
 
     no_tax = TaxConfig(short_term_rate=0.0, long_term_rate=0.0)
     trade = pf.sell_employer_to_fraction(
@@ -42,7 +63,9 @@ def test_sell_to_fraction_hits_target_without_tax():
 
 def test_sell_to_fraction_hits_target_from_mixed_portfolio():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=10_000, employer_price=9.0)  # $90k employer
+    pf.add_grant(
+        DATE, shares=10_000, employer_price=9.0, tax_config=NO_WITHHOLDING
+    )  # $90k employer
     pf.buy_index(DATE, dollars=30_000, index_price=10.0)  # +$30k index -> employer is 75% of $120k
 
     trade = pf.sell_employer_to_fraction(
@@ -52,13 +75,15 @@ def test_sell_to_fraction_hits_target_from_mixed_portfolio():
     assert trade is not None
     # Trimming an already-mixed portfolio (distinct employer/index prices) still
     # lands exactly on target: sell $50k of employer, total value is conserved.
-    assert trade.gross_value == approx(50_000)
+    assert trade.traded_value == approx(50_000)
     assert pf.employer_fraction(9.0, 10.0) == approx(1 / 3)
 
 
 def test_sell_to_fraction_noop_when_below_target():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)  # $10k employer
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING
+    )  # $10k employer
     pf.buy_index(DATE, dollars=9_000, index_price=10.0)  # +$9k index -> employer 52.6%, below 0.6
 
     trade = pf.sell_employer_to_fraction(
@@ -70,7 +95,9 @@ def test_sell_to_fraction_noop_when_below_target():
 
 def test_tax_on_realized_gain():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)  # 1000 shares, basis $10
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING
+    )  # 1000 shares, basis $10
 
     # Price doubles to $20: position now worth $20k, no index yet. Same-day sale, so the
     # gain is short-term.
@@ -84,7 +111,7 @@ def test_tax_on_realized_gain():
 
     assert trade is not None
     # Sell $10k of stock = 500 shares; gain = 500 * ($20 - $10) = $5,000; tax = $1,000.
-    assert trade.gross_value == approx(10_000)
+    assert trade.traded_value == approx(10_000)
     assert trade.tax_paid == approx(1_000)
     # Net $9,000 reinvested in the index.
     assert trade.index_dollars_in == approx(9_000)
@@ -94,8 +121,12 @@ def test_tax_on_realized_gain():
 
 def test_min_tax_sells_lower_gain_lot_first():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)  # lot 1: 1000 sh @ $10
-    pf.add_grant(DATE, shares=1_000, employer_price=20.0)  # lot 2: 1000 sh @ $20
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING
+    )  # lot 1: 1000 sh @ $10
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=20.0, tax_config=NO_WITHHOLDING
+    )  # lot 2: 1000 sh @ $20
 
     # At $20, the position is worth $40k. Trim to 25% -> sell $30k = 1500 shares,
     # which spans lot 2 entirely (1000 sh) plus 500 sh of lot 1.
@@ -108,7 +139,7 @@ def test_min_tax_sells_lower_gain_lot_first():
     )
 
     assert trade is not None
-    assert trade.gross_value == approx(30_000)
+    assert trade.traded_value == approx(30_000)
     # Min-tax: the zero-gain $20 lot sells first (no tax), then 500 sh of the $10 lot.
     # lot 2: 1000 * ($20-$20) = $0; lot 1: 500 * ($20-$10) = $5,000. Tax = 20% * $5k.
     # (Under FIFO the gain would be $10k and tax $2k, so this pins the ordering.)
@@ -122,7 +153,7 @@ def test_min_tax_sells_lower_gain_lot_first():
 
 def test_liquidate_sells_all_employer():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=2_000, employer_price=25.0)
+    pf.add_grant(DATE, shares=2_000, employer_price=25.0, tax_config=NO_WITHHOLDING)
 
     trade = pf.sell_employer_to_fraction(
         DATE, target_fraction=0.0, employer_price=25.0, index_price=50.0, tax_config=TaxConfig()
@@ -136,7 +167,9 @@ def test_liquidate_sells_all_employer():
 
 def test_long_term_gain_taxed_at_long_term_rate():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)  # 1000 shares, basis $10
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING
+    )  # 1000 shares, basis $10
     sale_date = DATE + pd.Timedelta(days=400)  # held > 365 days -> long-term
 
     trade = pf.sell_employer_to_fraction(
@@ -154,7 +187,9 @@ def test_long_term_gain_taxed_at_long_term_rate():
 
 def test_short_term_gain_taxed_at_short_term_rate():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)  # 1000 shares, basis $10
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING
+    )  # 1000 shares, basis $10
     sale_date = DATE + pd.Timedelta(days=200)  # held <= 365 days -> short-term
 
     trade = pf.sell_employer_to_fraction(
@@ -172,9 +207,13 @@ def test_short_term_gain_taxed_at_short_term_rate():
 
 def test_mixed_holding_periods_taxed_per_lot():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)  # lot 1: 1000 sh @ $10 (old)
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING
+    )  # lot 1: 1000 sh @ $10 (old)
     later = DATE + pd.Timedelta(days=400)
-    pf.add_grant(later, shares=1_000, employer_price=20.0)  # lot 2: 1000 sh @ $20 (new)
+    pf.add_grant(
+        later, shares=1_000, employer_price=20.0, tax_config=NO_WITHHOLDING
+    )  # lot 2: 1000 sh @ $20 (new)
 
     # Sell on a day that is long-term for lot 1 but short-term for lot 2.
     sale_date = later + pd.Timedelta(days=100)
@@ -196,9 +235,13 @@ def test_mixed_holding_periods_taxed_per_lot():
 
 def test_min_tax_orders_by_rate_not_just_basis():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)  # lot 1: 1000 sh @ $10 (old)
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING
+    )  # lot 1: 1000 sh @ $10 (old)
     later = DATE + pd.Timedelta(days=400)
-    pf.add_grant(later, shares=1_000, employer_price=18.0)  # lot 2: 1000 sh @ $18 (new)
+    pf.add_grant(
+        later, shares=1_000, employer_price=18.0, tax_config=NO_WITHHOLDING
+    )  # lot 2: 1000 sh @ $18 (new)
 
     # Sell on a day that is long-term for lot 1 but short-term for lot 2. Sell 500 sh.
     # lot 1 (lower basis, but long-term): ($20-$10) * 0.20 = $2.00/sh tax.
@@ -223,12 +266,16 @@ def test_min_tax_orders_by_rate_not_just_basis():
 
 def test_min_tax_prefers_fresh_grant_with_near_zero_gain():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)  # old lot: 1000 sh @ $10
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING
+    )  # old lot: 1000 sh @ $10
     # The common real flow: a fresh grant vests, then a rebalance lands days later. The
     # fresh lot is short-term (higher rate) but has barely moved, so its per-share tax is
     # ~0 and min-tax drains it first -- ahead of the old, deeply-appreciated lot.
     grant_day = DATE + pd.Timedelta(days=400)
-    pf.add_grant(grant_day, shares=1_000, employer_price=30.0)  # fresh lot: 1000 sh @ $30
+    pf.add_grant(
+        grant_day, shares=1_000, employer_price=30.0, tax_config=NO_WITHHOLDING
+    )  # fresh lot: 1000 sh @ $30
 
     # Sell 3 days after the fresh grant at its grant price (fresh gain = $0, short-term);
     # the old lot is long-term with a $20/sh gain. Position is $60k; trim to 75% -> sell
@@ -251,8 +298,12 @@ def test_min_tax_prefers_fresh_grant_with_near_zero_gain():
 
 def test_no_tax_devolves_to_fifo():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)  # lot 1: 1000 sh @ $10 (old)
-    pf.add_grant(DATE, shares=1_000, employer_price=20.0)  # lot 2: 1000 sh @ $20 (new)
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING
+    )  # lot 1: 1000 sh @ $10 (old)
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=20.0, tax_config=NO_WITHHOLDING
+    )  # lot 2: 1000 sh @ $20 (new)
 
     # With taxes off every lot ties at zero tax, so the stable sort preserves acquisition
     # order: the partial sell drains the oldest lot first, exactly like FIFO.
@@ -271,8 +322,12 @@ def test_no_tax_devolves_to_fifo():
 def test_liquidation_tax_spans_both_legs_holding_periods_and_losses():
     pf = Portfolio()
     later = DATE + pd.Timedelta(days=400)
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)  # emp old: 1000 sh @ $10
-    pf.add_grant(later, shares=1_000, employer_price=20.0)  # emp fresh: 1000 sh @ $20
+    pf.add_grant(
+        DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING
+    )  # emp old: 1000 sh @ $10
+    pf.add_grant(
+        later, shares=1_000, employer_price=20.0, tax_config=NO_WITHHOLDING
+    )  # emp fresh: 1000 sh @ $20
     pf.buy_index(DATE, dollars=5_000, index_price=5.0)  # idx old: 1000 sh @ $5
     pf.buy_index(later, dollars=12_000, index_price=12.0)  # idx fresh: 1000 sh @ $12
 
@@ -291,7 +346,7 @@ def test_liquidation_tax_spans_both_legs_holding_periods_and_losses():
 
 def test_liquidation_value_is_market_value_less_tax():
     pf = Portfolio()
-    pf.add_grant(DATE, shares=1_000, employer_price=10.0)
+    pf.add_grant(DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING)
     pf.buy_index(DATE, dollars=5_000, index_price=5.0)
 
     cfg = TaxConfig()
