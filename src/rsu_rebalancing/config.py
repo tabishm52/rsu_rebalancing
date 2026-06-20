@@ -17,27 +17,29 @@ class GrantConfig:
     One award is granted each year; :func:`~rsu_rebalancing.vesting.build_vesting_schedule`
     expands these parameters against prices into the shares vesting on each trading day.
 
+    The award stream spans the backtest window: one award per year through the window's
+    last year, starting either at the window's first year (a new hire ramping up) or
+    ``vesting_years`` before it (a mature employee whose previous awards are vesting in year one).
+
     Attributes:
         grant_dollars: Pre-tax value of the award granted in the backtest window's
             first year. Awards grow ``grant_growth_rate`` per year off that anchor.
-        start_year: First calendar year to grant an award in (inclusive). Set this before
-            the backtest window to backfill awards whose vests land inside it.
-        end_year: Last calendar year to grant an award in (inclusive).
         grant_growth_rate: Annual growth of the award's dollar value, modeling wage
             inflation in the grant band. Compounds off the backtest window's first year.
         grant_month: Month of the award (1-12). Defaults to March.
         grant_day: Day of month for the nominal award date. The backtest snaps this
             to the first trading day on or after it.
         vesting_years: Number of equal annual tranches each award vests over (>= 1).
+        backfill: Selects between the two streams above -- True backfills before the window
+            (mature employee), False starts it at the window (new hire).
     """
 
     grant_dollars: float
-    start_year: int
-    end_year: int
     grant_growth_rate: float = 0.04
     grant_month: int = 3
     grant_day: int = 1
     vesting_years: int = 4
+    backfill: bool = True
 
     def __post_init__(self) -> None:
         """Validate parameter ranges."""
@@ -45,10 +47,6 @@ class GrantConfig:
             raise ValueError(f"grant_dollars must be >= 0; got {self.grant_dollars}")
         if self.grant_growth_rate <= -1.0:
             raise ValueError(f"grant_growth_rate must be > -1; got {self.grant_growth_rate}")
-        if self.start_year > self.end_year:
-            raise ValueError(
-                f"start_year ({self.start_year}) must be <= end_year ({self.end_year})"
-            )
         if self.vesting_years < 1:
             raise ValueError(f"vesting_years must be >= 1; got {self.vesting_years}")
         # Probe month/day against a non-leap year so the grant date is valid in every
@@ -60,21 +58,28 @@ class GrantConfig:
                 f"invalid grant_month/grant_day: {self.grant_month}/{self.grant_day}"
             ) from exc
 
-    def nominal_grant_dates(self) -> list[pd.Timestamp]:
-        """Return the nominal (calendar) award date for each year, earliest first."""
+    def _start_year(self, window_start: pd.Timestamp) -> int:
+        """First award year: the window's first year, backfilled by ``vesting_years``."""
+        return window_start.year - (self.vesting_years if self.backfill else 0)
+
+    def nominal_grant_dates(
+        self, window_start: pd.Timestamp, window_end: pd.Timestamp
+    ) -> list[pd.Timestamp]:
+        """Return the nominal (calendar) award date for each year in the window, earliest first."""
         return [
             pd.Timestamp(year=year, month=self.grant_month, day=self.grant_day)
-            for year in range(self.start_year, self.end_year + 1)
+            for year in range(self._start_year(window_start), window_end.year + 1)
         ]
 
-    @property
-    def earliest_grant_date(self) -> pd.Timestamp:
+    def earliest_grant_date(self, window_start: pd.Timestamp) -> pd.Timestamp:
         """Nominal date of the first award.
 
-        Awards can predate the backtest window, so this is how far back employer prices
-        must be fetched to lock each award's share count at its award-date price.
+        Backfilled awards predate the backtest window, so this is how far back employer
+        prices must be fetched to lock each award's share count at its award-date price.
         """
-        return self.nominal_grant_dates()[0]
+        return pd.Timestamp(
+            year=self._start_year(window_start), month=self.grant_month, day=self.grant_day
+        )
 
 
 @dataclass(frozen=True)

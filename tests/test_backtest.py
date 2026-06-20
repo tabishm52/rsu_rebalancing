@@ -22,8 +22,7 @@ def _run_backtest(monkeypatch):
     monkeypatch.setattr(backtest, "get_price_frame", lambda *args, **kwargs: _PRICES)
     monkeypatch.setattr(backtest, "get_prices", lambda *args, **kwargs: _AWARD_PRICES)
     strategy = StrategyConfig(employer_ticker="EMP", index_ticker="IDX", threshold=1 / 3)
-    # Award in 2019 vesting fully in 2020, so the grant stream is non-empty in the window.
-    schedule = GrantConfig(grant_dollars=50_000, start_year=2019, end_year=2019, vesting_years=1)
+    schedule = GrantConfig(grant_dollars=50_000, vesting_years=1)
     backtest_cfg = BacktestConfig(start="2020-01-01", end="2020-12-31")
 
     return backtest.run_backtest(strategy, schedule, backtest_cfg)

@@ -212,7 +212,7 @@ def run_backtest(
     # Grants can predate the window; fetch employer prices back to the earliest grant so
     # each grant's share count can be locked at its grant-date price.
     award_prices = get_prices(
-        strategy.employer_ticker, grant_config.earliest_grant_date, backtest.end
+        strategy.employer_ticker, grant_config.earliest_grant_date(backtest.start), backtest.end
     )
     vesting = build_vesting_schedule(grant_config, award_prices, trading_days)
     rebalance_days = rebalance_trade_dates(

@@ -162,8 +162,8 @@ from rsu_rebalancing import (
 )
 
 strategy = StrategyConfig(employer_ticker="AAPL", index_ticker="VTI", threshold=0.33)
-grants = GrantConfig(grant_dollars=100_000, start_year=2011, end_year=2024)
-backtest = BacktestConfig(start="2015-01-01", end="2024-12-31", risk_free_rate=0.02)
+grants = GrantConfig(grant_dollars=100_000)
+backtest = BacktestConfig(start="2015-01-01", end="2024-12-31")
 
 results = run_backtest(strategy, grants, backtest)
 print(
@@ -175,9 +175,8 @@ print(
 )
 ```
 
-The above Python code mirrors the notebook's AAPL defaults and should produce the summary table
-shown above. An important detail in the config is that the grant years extend earlier than the
-backtest years — see the parameters section below for more explanation.
+The above Python code mirrors the notebook's AAPL defaults and should reproduce the summary table
+shown above.
 
 ## Parameters
 
@@ -202,10 +201,8 @@ the dataclass docstrings in [src/rsu_rebalancing/config.py](src/rsu_rebalancing/
 
 ### Extra settings
 
-- **Backfill grants before window**: Starts the award stream `vesting_years` before the window so
-  year one of the backtest opens at steady state (a mature employee with established grants, not a
-  new hire building up a series of grants). In the Python API this translates to setting
-  `GrantConfig.start_year` that many years before `BacktestConfig.start`.
+- **Backfill grants before window** (`GrantConfig.backfill`): Whether year one of the backtest
+  opens with grants already vesting (a mature employee) or starts from zero (a new hire ramping up).
 - **Vesting years** (`GrantConfig.vesting_years`): Equal annual tranches each award vests over.
 - **Rebalances per quarter** (`StrategyConfig.rebalances_per_quarter`): How many evenly spaced
   rebalance dates to place in each quarter.

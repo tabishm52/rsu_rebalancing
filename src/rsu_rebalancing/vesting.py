@@ -65,7 +65,7 @@ def build_vesting_schedule(
     anchor_year = window_days[0].year
 
     shares_by_day: VestingSchedule = {}
-    for award_nominal in config.nominal_grant_dates():
+    for award_nominal in config.nominal_grant_dates(window_days[0], window_days[-1]):
         award_day = first_trading_day_on_or_after(award_index, award_nominal)
         if award_day is None:
             # Award granted after the price history ends (past the window); all its vests

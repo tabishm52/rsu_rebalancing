@@ -66,7 +66,8 @@ def build_backtest_controls() -> BacktestControls:
         show_value=True,
     )
     backfill = mo.ui.switch(
-        value=True, label="Backfill grants before window (mature employee, not new hire)"
+        value=GrantConfig.backfill,
+        label="Backfill grants before window (mature employee, not new hire)",
     )
     grant_growth = mo.ui.slider(
         start=0,
@@ -205,16 +206,10 @@ def build_configs(
         tax_config=tax_config,
     )
 
-    # Backfill makes grants begin vesting_years before the window so its first year opens
-    # at steady-state overlapping vests (a mature employee). Otherwise, the first grant
-    # lands at the window start (a new hire ramping up).
-    vesting_years = int(c.vesting_years.value)
-    grant_start_year = start_ts.year - (vesting_years if c.backfill.value else 0)
     grant_cfg = GrantConfig(
         grant_dollars=cast(float, c.annual_dollars.value),
-        start_year=grant_start_year,
-        end_year=end_ts.year,
-        vesting_years=vesting_years,
+        backfill=c.backfill.value,
+        vesting_years=int(c.vesting_years.value),
         grant_growth_rate=c.grant_growth.value / 100.0,
     )
 

@@ -8,55 +8,57 @@ from rsu_rebalancing.config import BacktestConfig, GrantConfig, StrategyConfig, 
 # --- GrantConfig ---------------------------------------------------------
 
 
-def test_grant_config_nominal_dates_one_per_year():
-    schedule = GrantConfig(grant_dollars=50_000, start_year=2020, end_year=2022)
+def test_grant_config_backfilled_span_starts_vesting_years_before_window():
+    schedule = GrantConfig(grant_dollars=50_000, vesting_years=4, backfill=True)
 
-    dates = schedule.nominal_grant_dates()
+    dates = schedule.nominal_grant_dates(pd.Timestamp("2022-01-01"), pd.Timestamp("2024-12-31"))
+
+    # 2022 window backfilled by 4 vesting years: awards from 2018 through 2024.
+    assert dates == [pd.Timestamp(year=year, month=3, day=1) for year in range(2018, 2025)]
+
+
+def test_grant_config_no_backfill_span_starts_at_window():
+    schedule = GrantConfig(grant_dollars=50_000, vesting_years=4, backfill=False)
+
+    dates = schedule.nominal_grant_dates(pd.Timestamp("2022-01-01"), pd.Timestamp("2024-12-31"))
 
     assert dates == [
-        pd.Timestamp("2020-03-01"),
-        pd.Timestamp("2021-03-01"),
         pd.Timestamp("2022-03-01"),
+        pd.Timestamp("2023-03-01"),
+        pd.Timestamp("2024-03-01"),
     ]
 
 
 def test_grant_config_rejects_negative_dollars():
     with pytest.raises(ValueError, match="grant_dollars must be >= 0"):
-        GrantConfig(grant_dollars=-1, start_year=2020, end_year=2021)
-
-
-def test_grant_config_rejects_inverted_year_range():
-    with pytest.raises(ValueError, match="start_year .* must be <= end_year"):
-        GrantConfig(grant_dollars=50_000, start_year=2021, end_year=2020)
+        GrantConfig(grant_dollars=-1)
 
 
 def test_grant_config_rejects_non_positive_vesting_years():
     with pytest.raises(ValueError, match="vesting_years must be >= 1"):
-        GrantConfig(grant_dollars=50_000, start_year=2020, end_year=2021, vesting_years=0)
+        GrantConfig(grant_dollars=50_000, vesting_years=0)
 
 
 def test_grant_config_rejects_growth_rate_at_or_below_minus_one():
     with pytest.raises(ValueError, match="grant_growth_rate must be > -1"):
-        GrantConfig(grant_dollars=50_000, start_year=2020, end_year=2021, grant_growth_rate=-1.0)
+        GrantConfig(grant_dollars=50_000, grant_growth_rate=-1.0)
 
 
 def test_grant_config_allows_feb_28():
     # Valid in every year; the non-leap probe should accept it.
-    GrantConfig(grant_dollars=50_000, start_year=2020, end_year=2021, grant_month=2, grant_day=28)
+    GrantConfig(grant_dollars=50_000, grant_month=2, grant_day=28)
 
 
 def test_grant_config_rejects_feb_29():
     # Only valid in leap years, so the non-leap probe rejects it even though some
-    # years in the range (2020) would accept it.
+    # years would accept it.
     with pytest.raises(ValueError, match="invalid grant_month/grant_day"):
-        GrantConfig(
-            grant_dollars=50_000, start_year=2020, end_year=2021, grant_month=2, grant_day=29
-        )
+        GrantConfig(grant_dollars=50_000, grant_month=2, grant_day=29)
 
 
 def test_grant_config_rejects_out_of_range_month():
     with pytest.raises(ValueError, match="invalid grant_month/grant_day"):
-        GrantConfig(grant_dollars=50_000, start_year=2020, end_year=2021, grant_month=13)
+        GrantConfig(grant_dollars=50_000, grant_month=13)
 
 
 # --- StrategyConfig --------------------------------------------------------

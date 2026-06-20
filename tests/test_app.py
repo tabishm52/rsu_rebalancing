@@ -20,16 +20,18 @@ def test_build_configs_maps_default_controls():
 
     assert strategy_cfg.employer_ticker == "AAPL"
     assert strategy_cfg.threshold == 0.33  # 33% slider -> fraction
-    assert grant_cfg.start_year == 2011  # 2015 window, backfilled by 4 vesting years
+    first_grant = grant_cfg.nominal_grant_dates(backtest_cfg.start, backtest_cfg.end)[0]
+    assert first_grant.year == 2011  # 2015 window, backfilled by 4 vesting years
     assert basis == "pre-tax"
 
 
 def test_build_configs_backfill_off_anchors_grants_at_window_start():
     controls = dataclasses.replace(build_backtest_controls(), backfill=mo.ui.switch(value=False))
 
-    _, grant_cfg, _, _ = build_configs(controls)
+    _, grant_cfg, backtest_cfg, _ = build_configs(controls)
 
-    assert grant_cfg.start_year == 2015
+    first_grant = grant_cfg.nominal_grant_dates(backtest_cfg.start, backtest_cfg.end)[0]
+    assert first_grant.year == 2015
 
 
 def test_build_configs_after_tax_toggle_sets_basis():
