@@ -137,7 +137,7 @@ def run_rule(
             grant_shares=grant_shares,
             is_rebalance_day=date in rebalance_set,
         )
-        records.extend(rule.step(portfolio, day))
+        records.extend(rule.step(portfolio, day, tax_config))
 
         # Compute portfolio value after the step at today's prices
         market_after = portfolio.market_value(emp_price, idx_price)
@@ -211,8 +211,8 @@ def run_backtest(
 
     rules: list[RebalanceRule] = [
         HoldEverything(),
-        ThresholdRebalance(strategy.threshold, strategy.rebalance_band, strategy.tax_config),
-        SellAllAtVest(strategy.tax_config),
+        ThresholdRebalance(strategy.threshold, strategy.rebalance_band),
+        SellAllAtVest(),
     ]
     return {
         rule.name: run_rule(

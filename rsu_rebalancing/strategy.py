@@ -47,12 +47,15 @@ class RebalanceRule(Protocol):
         """
         ...
 
-    def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
+    def step(
+        self, portfolio: Portfolio, day: TradingDay, tax_config: TaxConfig
+    ) -> list[TradeRecord]:
         """Apply this rule's trades for one day, mutating ``portfolio`` in place.
 
         Args:
             portfolio: Holdings to act on; grants and sales mutate it in place.
             day: The day's market facts (prices, any grant, rebalance flag).
+            tax_config: Tax rates for any trade the rule makes.
 
         Returns:
             One :class:`TradeRecord` per trade executed today, in execution order
@@ -64,19 +67,16 @@ class RebalanceRule(Protocol):
 class ThresholdRebalance:
     """Trim employer stock to a target fraction on each rebalance day."""
 
-    def __init__(self, threshold: float, band: float, tax_config: TaxConfig | None = None) -> None:
-        """Store the target fraction, hysteresis band, and tax rates.
+    def __init__(self, threshold: float, band: float) -> None:
+        """Store the target fraction and hysteresis band.
 
         Args:
             threshold: Target maximum employer fraction; rebalances trim down to this.
             band: One-way hysteresis band, in fraction points. A rebalance fires only
                 once the employer fraction exceeds ``threshold + band``.
-            tax_config: Capital-gains rates applied to realized gains; defaults to
-                :class:`TaxConfig`'s standard rates.
         """
         self.threshold = threshold
         self.band = band
-        self.tax_config = tax_config if tax_config is not None else TaxConfig()
         self.name = f"Threshold {threshold:.0%}"
 
     def describe(self, employer_ticker: str, index_ticker: str) -> str:
@@ -86,7 +86,9 @@ class ThresholdRebalance:
             f"{1 - self.threshold:.0%} {index_ticker}"
         )
 
-    def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
+    def step(
+        self, portfolio: Portfolio, day: TradingDay, tax_config: TaxConfig
+    ) -> list[TradeRecord]:
         """Vest any grant, then trim to the threshold if past the band on a rebalance day."""
         trades: list[TradeRecord] = []
 
@@ -101,7 +103,7 @@ class ThresholdRebalance:
                     self.threshold,
                     day.employer_price,
                     day.index_price,
-                    self.tax_config,
+                    tax_config,
                 )
                 if trade is not None:
                     trades.append(trade)
@@ -122,8 +124,10 @@ class HoldEverything:
         """Description string for the all-employer baseline."""
         return f"Hold everything: 100% {employer_ticker}"
 
-    def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
-        """Vest any grant; never sell."""
+    def step(
+        self, portfolio: Portfolio, day: TradingDay, tax_config: TaxConfig
+    ) -> list[TradeRecord]:
+        """Vest any grant; never sell (so ``tax_config`` is unused)."""
         if day.grant_shares is None:
             return []
         return [portfolio.add_grant(day.date, day.grant_shares, day.employer_price)]
@@ -137,20 +141,13 @@ class SellAllAtVest:
 
     name = "Sell all at vest"
 
-    def __init__(self, tax_config: TaxConfig | None = None) -> None:
-        """Store the tax rates (gains are ~0 at vest, so tax is usually negligible).
-
-        Args:
-            tax_config: Capital-gains rates applied to realized gains; defaults to
-                :class:`TaxConfig`'s standard rates.
-        """
-        self.tax_config = tax_config if tax_config is not None else TaxConfig()
-
     def describe(self, employer_ticker: str, index_ticker: str) -> str:
         """Description string for the fully-diversified baseline."""
         return f"Sell all at vest: 100% {index_ticker}"
 
-    def step(self, portfolio: Portfolio, day: TradingDay) -> list[TradeRecord]:
+    def step(
+        self, portfolio: Portfolio, day: TradingDay, tax_config: TaxConfig
+    ) -> list[TradeRecord]:
         """Vest any grant, then sell the entire employer position into the index."""
         if day.grant_shares is None:
             return []
@@ -158,7 +155,7 @@ class SellAllAtVest:
         trades = [portfolio.add_grant(day.date, day.grant_shares, day.employer_price)]
 
         trade = portfolio.sell_employer_to_fraction(
-            day.date, 0.0, day.employer_price, day.index_price, self.tax_config
+            day.date, 0.0, day.employer_price, day.index_price, tax_config
         )
         if trade is not None:
             trades.append(trade)
