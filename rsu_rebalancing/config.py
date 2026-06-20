@@ -160,27 +160,39 @@ class StrategyConfig:
             )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class BacktestConfig:
     """The backtest window and reporting assumptions (risk-free rate, performance basis).
+
+    Loose dates are part of the contract: ``start`` and ``end`` accept anything
+    ``pd.Timestamp`` does (e.g. ``"2020-01-01"``) and are stored as normalized, tz-naive
+    Timestamps, so reads are always a ``Timestamp``.
 
     Attributes:
         start: First date of the backtest (inclusive).
         end: Last date of the backtest (inclusive).
         risk_free_rate: Annual risk-free rate used by the Sharpe ratio. Defaults to
-            0.02, roughly the average 3-month Treasury yield over 2015-2024.
+            roughly the average 3-month Treasury yield over 2015-2024.
         after_tax_performance: When True, return and risk metrics are measured on
             net-of-tax liquidation value; when False, on raw market value.
     """
 
     start: pd.Timestamp
     end: pd.Timestamp
-    risk_free_rate: float = 0.02
-    after_tax_performance: bool = False
+    risk_free_rate: float
+    after_tax_performance: bool
 
-    def __post_init__(self) -> None:
-        """Normalize string/loose dates to tz-naive Timestamps and validate order."""
-        object.__setattr__(self, "start", pd.Timestamp(self.start).normalize())
-        object.__setattr__(self, "end", pd.Timestamp(self.end).normalize())
+    def __init__(
+        self,
+        start: str | pd.Timestamp,
+        end: str | pd.Timestamp,
+        risk_free_rate: float = 0.02,
+        after_tax_performance: bool = False,
+    ) -> None:
+        """Normalize loose dates to tz-naive Timestamps and validate order."""
+        object.__setattr__(self, "start", pd.Timestamp(start).normalize())
+        object.__setattr__(self, "end", pd.Timestamp(end).normalize())
+        object.__setattr__(self, "risk_free_rate", risk_free_rate)
+        object.__setattr__(self, "after_tax_performance", after_tax_performance)
         if self.start >= self.end:
             raise ValueError(f"start ({self.start.date()}) must be before end ({self.end.date()})")
