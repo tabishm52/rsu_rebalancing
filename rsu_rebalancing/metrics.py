@@ -17,6 +17,13 @@ from .backtest import BacktestResult, PerfSeries
 TRADING_DAYS_PER_YEAR = 252
 
 
+def _as_scalar(value: float | pd.Series) -> float:
+    """Narrow a quantstats stat (typed ``float | Series``) to a scalar float."""
+    if isinstance(value, pd.Series):
+        raise TypeError(f"expected a scalar stat, got a Series of length {len(value)}")
+    return float(value)
+
+
 def time_weighted_returns(perf: PerfSeries) -> pd.Series:
     """Daily time-weighted returns on a performance basis, removing the effect of flows.
 
@@ -59,7 +66,7 @@ def annualized_return(returns: pd.Series) -> float:
     """
     if returns.empty:
         return float("nan")
-    return float(qs.stats.cagr(returns, periods=TRADING_DAYS_PER_YEAR))
+    return _as_scalar(qs.stats.cagr(returns, periods=TRADING_DAYS_PER_YEAR))
 
 
 def annualized_volatility(returns: pd.Series) -> float:
@@ -71,7 +78,7 @@ def annualized_volatility(returns: pd.Series) -> float:
     Returns:
         The sample standard deviation (``ddof=1``) scaled by ``sqrt(252)``.
     """
-    return float(qs.stats.volatility(returns, periods=TRADING_DAYS_PER_YEAR, annualize=True))
+    return _as_scalar(qs.stats.volatility(returns, periods=TRADING_DAYS_PER_YEAR, annualize=True))
 
 
 def max_drawdown(returns: pd.Series) -> float:
@@ -86,7 +93,7 @@ def max_drawdown(returns: pd.Series) -> float:
     """
     if returns.empty:
         return float("nan")
-    return float(qs.stats.max_drawdown(returns))
+    return _as_scalar(qs.stats.max_drawdown(returns))
 
 
 def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
@@ -101,7 +108,7 @@ def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
     """
     if annualized_volatility(returns) == 0.0:
         return float("nan")  # qs.stats.sharpe yields inf here; we report NaN instead
-    return float(qs.stats.sharpe(returns, rf=risk_free_rate, periods=TRADING_DAYS_PER_YEAR))
+    return _as_scalar(qs.stats.sharpe(returns, rf=risk_free_rate, periods=TRADING_DAYS_PER_YEAR))
 
 
 def summarize(result: BacktestResult, risk_free_rate: float, after_tax: bool) -> pd.Series:
