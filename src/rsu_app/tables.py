@@ -26,7 +26,6 @@ def format_trade_log(trades: pd.DataFrame) -> pd.DataFrame:
         date=trades["date"].dt.date,
         employer_shares=trades["employer_shares"].round(1),
         employer_price=trades["employer_price"].round(2),
-        traded_value=trades["traded_value"].round(2),
         tax_paid=trades["tax_paid"].round(2),
-        index_dollars_in=trades["index_dollars_in"].round(2),
+        index_invested=trades["index_invested"].round(2),
     )

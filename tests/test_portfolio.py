@@ -33,7 +33,7 @@ def test_grant_withholds_sell_to_cover_and_records_the_tax():
     # shares are kept and the $25k of withholding is documented on the row.
     assert pf.employer_shares == approx(7_500)
     assert trade.employer_shares == approx(7_500)
-    assert trade.traded_value == approx(75_000)
+    assert trade.employer_shares * trade.employer_price == approx(75_000)
     assert trade.tax_paid == approx(25_000)
 
 
@@ -75,7 +75,7 @@ def test_sell_to_fraction_hits_target_from_mixed_portfolio():
     assert trade is not None
     # Trimming an already-mixed portfolio (distinct employer/index prices) still
     # lands exactly on target: sell $50k of employer, total value is conserved.
-    assert trade.traded_value == approx(50_000)
+    assert abs(trade.employer_shares) * trade.employer_price == approx(50_000)
     assert pf.employer_fraction(9.0, 10.0) == approx(1 / 3)
 
 
@@ -111,10 +111,10 @@ def test_tax_on_realized_gain():
 
     assert trade is not None
     # Sell $10k of stock = 500 shares; gain = 500 * ($20 - $10) = $5,000; tax = $1,000.
-    assert trade.traded_value == approx(10_000)
+    assert abs(trade.employer_shares) * trade.employer_price == approx(10_000)
     assert trade.tax_paid == approx(1_000)
     # Net $9,000 reinvested in the index.
-    assert trade.index_dollars_in == approx(9_000)
+    assert trade.index_invested == approx(9_000)
     assert pf.index_value(20.0) == approx(9_000)
     assert pf.employer_shares == approx(500)
 
@@ -139,7 +139,7 @@ def test_min_tax_sells_lower_gain_lot_first():
     )
 
     assert trade is not None
-    assert trade.traded_value == approx(30_000)
+    assert abs(trade.employer_shares) * trade.employer_price == approx(30_000)
     # Min-tax: the zero-gain $20 lot sells first (no tax), then 500 sh of the $10 lot.
     # lot 2: 1000 * ($20-$20) = $0; lot 1: 500 * ($20-$10) = $5,000. Tax = 20% * $5k.
     # (Under FIFO the gain would be $10k and tax $2k, so this pins the ordering.)

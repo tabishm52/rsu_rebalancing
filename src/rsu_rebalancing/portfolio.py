@@ -44,20 +44,17 @@ class TradeRecord:
         employer_shares: Employer shares transacted, signed: positive for a grant (net of
             taxes), negative on a sale.
         employer_price: Employer share price at the trade.
-        traded_value: Market value of the employer shares moved on this trade: the kept value
-            on a grant, or the proceeds on a sale.
         tax_paid: Tax paid out at the trade: ordinary-income withholding on a grant, or
             capital-gains tax out of the proceeds on a sale.
-        index_dollars_in: Net dollars moved into the index position.
+        index_invested: Net (after-tax) dollars reinvested into the index in the trade.
     """
 
     date: pd.Timestamp
     kind: Literal["grant", "rebalance", "liquidate"]
     employer_shares: float
     employer_price: float
-    traded_value: float
     tax_paid: float
-    index_dollars_in: float
+    index_invested: float
 
 
 @dataclass
@@ -127,9 +124,8 @@ class Portfolio:
             kind="grant",
             employer_shares=kept_shares,
             employer_price=employer_price,
-            traded_value=kept_shares * employer_price,
             tax_paid=tax_paid,
-            index_dollars_in=0.0,
+            index_invested=0.0,
         )
 
     def buy_index(self, date: pd.Timestamp, dollars: float, index_price: float) -> None:
@@ -243,9 +239,8 @@ class Portfolio:
             kind="liquidate" if target_fraction == 0.0 else "rebalance",
             employer_shares=-shares_to_sell,
             employer_price=employer_price,
-            traded_value=proceeds,
             tax_paid=tax_paid,
-            index_dollars_in=net,
+            index_invested=net,
         )
 
     def liquidation_tax(

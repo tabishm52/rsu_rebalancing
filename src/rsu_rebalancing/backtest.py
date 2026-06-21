@@ -73,8 +73,9 @@ class BacktestResult:
         withholding (sell-to-cover), and excludes any subsequent gains or losses. Recomputed
         on each access.
         """
-        grants = self.trades.loc[self.trades["kind"] == "grant", ["date", "traded_value"]]
-        by_day = grants.groupby("date")["traded_value"].sum()
+        grants = self.trades.loc[self.trades["kind"] == "grant"]
+        value = grants["employer_shares"] * grants["employer_price"]
+        by_day = value.groupby(grants["date"]).sum()
         return by_day.reindex(self.market.values.index, fill_value=0.0)
 
     @property

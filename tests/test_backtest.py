@@ -43,14 +43,15 @@ def test_run_backtest_feeds_identical_grants_to_every_strategy(monkeypatch):
 
 
 def test_vested_contributions_count_only_grants():
-    # vested_contributions is the "total contributed" reporting figure: only grant
-    # traded_value, summed per day and aligned (zero-filled) to market.values.index.
-    # Rebalances and tax are not contributions.
+    # vested_contributions is the "total contributed" reporting figure: only grants'
+    # employer_shares * employer_price, summed per day and aligned (zero-filled) to
+    # market.values.index. Rebalances and tax are not contributions.
     trades = pd.DataFrame(
         {
             "kind": ["grant", "grant", "rebalance"],
             "date": [_DATES[0], _DATES[0], _DATES[1]],
-            "traded_value": [100.0, 50.0, 200.0],
+            "employer_shares": [100.0, 50.0, -200.0],
+            "employer_price": [1.0, 1.0, 1.0],
             "tax_paid": [0.0, 0.0, 30.0],
         }
     )
@@ -77,7 +78,6 @@ def test_taxes_paid_sums_every_kind_per_day():
         {
             "kind": ["grant", "rebalance", "grant"],
             "date": [_DATES[0], _DATES[0], _DATES[1]],
-            "traded_value": [100.0, 200.0, 50.0],
             "tax_paid": [10.0, 30.0, 5.0],
         }
     )
