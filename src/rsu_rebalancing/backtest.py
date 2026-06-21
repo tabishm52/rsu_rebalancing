@@ -72,6 +72,8 @@ class BacktestResult:
         withholding (sell-to-cover), and excludes any subsequent gains or losses. Recomputed
         on each access.
         """
+        if self.trades.empty:  # a column-less frame: a run with no grants or sales
+            return pd.Series(0.0, index=self.market.values.index)
         grants = self.trades.loc[self.trades["kind"] == "grant"]
         value = grants["employer_shares"] * grants["employer_price"]
         by_day = value.groupby(grants["date"]).sum()
@@ -84,6 +86,8 @@ class BacktestResult:
         Every row's ``tax_paid``, summed per day and aligned to ``market.values.index``
         (zero-filled). Recomputed on each access.
         """
+        if self.trades.empty:  # a column-less frame: a run with no grants or sales
+            return pd.Series(0.0, index=self.market.values.index)
         by_day = self.trades.groupby("date")["tax_paid"].sum()
         return by_day.reindex(self.market.values.index, fill_value=0.0)
 

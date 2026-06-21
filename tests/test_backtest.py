@@ -70,6 +70,22 @@ def test_vested_contributions_count_only_grants():
     assert grants.iloc[2] == 0.0  # no trades -> filled with 0
 
 
+def test_empty_trade_log_yields_zero_contributions_and_taxes():
+    # A run with no grants and no sales produces a column-less trade frame; the per-day
+    # reporting series must degrade to zeros aligned to the value index, not raise KeyError.
+    result = BacktestResult(
+        name="x",
+        description="x",
+        market=PerfSeries(values=pd.Series(0.0, index=_DATES[:3])),
+    )
+
+    assert result.trades.empty
+
+    assert list(result.vested_contributions) == [0.0, 0.0, 0.0]
+    assert list(result.taxes_paid) == [0.0, 0.0, 0.0]
+    assert list(result.vested_contributions.index) == list(_DATES[:3])
+
+
 def test_taxes_paid_sums_every_kind_per_day():
     # taxes_paid is the "total taxes actually paid" figure: every row's tax_paid (grant
     # withholding plus realized cap-gains on sales), summed per day and aligned (zero-filled)
