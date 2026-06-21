@@ -15,10 +15,6 @@ import pandas as pd
 from .calendar import first_trading_day_on_or_after
 from .config import GrantConfig
 
-# A resolved vesting schedule: a mapping from trading day to the employer shares vesting
-# that day. A plain dict; the alias just names the domain meaning at function boundaries.
-VestingSchedule = dict[pd.Timestamp, float]
-
 # An award snaps forward to the first trading day on or after it. A gap larger than a
 # handful of days means no price existed near the award -- it predates the employer's price
 # history (e.g. before its IPO), which we flag as an error.
@@ -29,7 +25,7 @@ def build_vesting_schedule(
     config: GrantConfig,
     employer_prices: pd.Series,
     window_days: pd.DatetimeIndex,
-) -> VestingSchedule:
+) -> dict[pd.Timestamp, float]:
     """Expand ``config`` into the employer shares vesting on each trading day.
 
     Each award's dollar value is converted to a share count at the award-date price, and
@@ -64,7 +60,7 @@ def build_vesting_schedule(
     tranche_fraction = 1.0 / config.vesting_years
     anchor_year = window_days[0].year
 
-    shares_by_day: VestingSchedule = {}
+    shares_by_day: dict[pd.Timestamp, float] = {}
     for award_nominal in config.nominal_grant_dates(window_days[0], window_days[-1]):
         award_day = first_trading_day_on_or_after(award_index, award_nominal)
         if award_day is None:

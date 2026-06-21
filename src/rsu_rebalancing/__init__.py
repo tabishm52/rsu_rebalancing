@@ -24,7 +24,7 @@ from .metrics import (
     time_weighted_returns,
 )
 from .strategy import HoldEverything, SellAllAtVest, ThresholdRebalance
-from .vesting import VestingSchedule, build_vesting_schedule
+from .vesting import build_vesting_schedule
 
 __all__ = [
     "BacktestConfig",
@@ -35,7 +35,6 @@ __all__ = [
     "StrategyConfig",
     "TaxConfig",
     "ThresholdRebalance",
-    "VestingSchedule",
     "annualized_return",
     "annualized_volatility",
     "build_vesting_schedule",

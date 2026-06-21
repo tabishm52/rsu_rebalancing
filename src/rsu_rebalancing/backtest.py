@@ -14,7 +14,7 @@ from .config import BacktestConfig, GrantConfig, StrategyConfig, TaxConfig
 from .data import get_price_frame, get_prices
 from .portfolio import Portfolio
 from .strategy import HoldEverything, RebalanceRule, SellAllAtVest, ThresholdRebalance, TradingDay
-from .vesting import VestingSchedule, build_vesting_schedule
+from .vesting import build_vesting_schedule
 
 
 def _empty_series() -> pd.Series:
@@ -96,7 +96,7 @@ def run_rule(
     prices: pd.DataFrame,
     employer_ticker: str,
     index_ticker: str,
-    vesting: VestingSchedule,
+    vesting_schedule: dict[pd.Timestamp, float],
     rebalance_days: list[pd.Timestamp],
     rule: RebalanceRule,
     tax_config: TaxConfig | None = None,
@@ -107,7 +107,7 @@ def run_rule(
         prices: Aligned daily prices with one column per ticker.
         employer_ticker: Employer-stock column in ``prices`` (assumed upper-cased).
         index_ticker: Diversified-index column in ``prices`` (assumed upper-cased).
-        vesting: The shares vesting on each trading day.
+        vesting_schedule: The shares vesting on each trading day.
         rebalance_days: Trading days on which the rule may rebalance.
         rule: The strategy logic to apply each day.
         tax_config: Rates for the hypothetical end-of-run liquidation tax (the same rates
@@ -132,7 +132,7 @@ def run_rule(
     for date in prices.index:
         emp_price = float(employer.loc[date])
         idx_price = float(index.loc[date])
-        grant_shares = vesting.get(date)
+        grant_shares = vesting_schedule.get(date)
 
         # Compute portfolio value at today's prices before the step
         market_before = portfolio.market_value(emp_price, idx_price)
@@ -211,7 +211,7 @@ def run_backtest(
     award_prices = get_prices(
         strategy.employer_ticker, grant_config.earliest_grant_date(backtest.start), backtest.end
     )
-    vesting = build_vesting_schedule(grant_config, award_prices, trading_days)
+    vesting_schedule = build_vesting_schedule(grant_config, award_prices, trading_days)
     rebalance_days = rebalance_trade_dates(
         trading_days, strategy.rebalances_per_quarter, backtest.start, backtest.end
     )
@@ -226,7 +226,7 @@ def run_backtest(
             prices,
             strategy.employer_ticker,
             strategy.index_ticker,
-            vesting,
+            vesting_schedule,
             rebalance_days,
             rule,
             strategy.tax_config,
