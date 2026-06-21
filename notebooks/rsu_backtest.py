@@ -65,9 +65,9 @@ def _(mo):
 
 @app.cell
 def controls(build_backtest_controls):
-    controls = build_backtest_controls()
-    controls.layout
-    return (controls,)
+    elements, layout = build_backtest_controls()
+    layout
+    return (elements,)
 
 
 @app.cell
@@ -79,9 +79,9 @@ def _(mo):
 
 
 @app.cell
-def backtest(build_configs, controls, mo, run_backtest):
+def backtest(build_configs, elements, mo, run_backtest):
     try:
-        strategy_cfg, grant_cfg, backtest_cfg, basis = build_configs(controls)
+        strategy_cfg, grant_cfg, backtest_cfg, basis = build_configs(elements)
         results = run_backtest(strategy_cfg, grant_cfg, backtest_cfg)
         error = None
     except Exception as exc:  # noqa: BLE001 - surface any data/config error in the UI

@@ -87,9 +87,9 @@ def inject_summary(slug: str, table_md: str) -> None:
     README.write_text(new_readme)
 
 
-def render(scenario: Scenario, controls) -> str:
+def render(scenario: Scenario, elements) -> str:
     """Run one scenario, write its chart, inject its table, and return the basis label."""
-    strategy_cfg, grant_cfg, backtest_cfg, basis = build_configs(controls)
+    strategy_cfg, grant_cfg, backtest_cfg, basis = build_configs(elements)
     strategy_cfg = dataclasses.replace(strategy_cfg, employer_ticker=scenario.employer)
     results = run_backtest(strategy_cfg, grant_cfg, backtest_cfg)
 
@@ -120,9 +120,9 @@ def main() -> None:
 
     # Render against the checked-in fixture so the README is deterministic and offline.
     with patch_yf():
-        controls = build_backtest_controls()
+        elements, _ = build_backtest_controls()
         for scenario in SCENARIOS:
-            basis = render(scenario, controls)
+            basis = render(scenario, elements)
             print(f"Rendered {scenario.employer}: growth-{scenario.slug}.png + table ({basis}).")
 
 

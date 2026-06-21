@@ -1,6 +1,6 @@
 """Unit tests for the rsu_app presentation layer (config assembly, outperformance spans)."""
 
-import dataclasses
+from typing import Any
 
 import marimo as mo
 import numpy as np
@@ -14,9 +14,9 @@ from rsu_app import (
 
 
 def test_build_configs_maps_default_controls():
-    controls = build_backtest_controls()
+    elements, _ = build_backtest_controls()
 
-    strategy_cfg, grant_cfg, backtest_cfg, basis = build_configs(controls)
+    strategy_cfg, grant_cfg, backtest_cfg, basis = build_configs(elements)
 
     assert strategy_cfg.employer_ticker == "AAPL"
     assert strategy_cfg.threshold == 0.33  # 33% slider -> fraction
@@ -25,21 +25,25 @@ def test_build_configs_maps_default_controls():
     assert basis == "pre-tax"
 
 
-def test_build_configs_backfill_off_anchors_grants_at_window_start():
-    controls = dataclasses.replace(build_backtest_controls(), backfill=mo.ui.switch(value=False))
+def _with_overrides(**overrides: Any) -> mo.ui.dictionary:
+    """The control widgets with the named ones swapped, to drive ``build_configs`` inputs."""
+    elements, _ = build_backtest_controls()
+    return mo.ui.dictionary({**elements.elements, **overrides})
 
-    _, grant_cfg, backtest_cfg, _ = build_configs(controls)
+
+def test_build_configs_backfill_off_anchors_grants_at_window_start():
+    elements = _with_overrides(backfill=mo.ui.switch(value=False))
+
+    _, grant_cfg, backtest_cfg, _ = build_configs(elements)
 
     first_grant = grant_cfg.nominal_grant_dates(backtest_cfg.start, backtest_cfg.end)[0]
     assert first_grant.year == 2015
 
 
 def test_build_configs_after_tax_toggle_sets_basis():
-    controls = dataclasses.replace(
-        build_backtest_controls(), after_tax_perf=mo.ui.switch(value=True)
-    )
+    elements = _with_overrides(after_tax_perf=mo.ui.switch(value=True))
 
-    _, _, backtest_cfg, basis = build_configs(controls)
+    _, _, backtest_cfg, basis = build_configs(elements)
 
     assert backtest_cfg.after_tax_performance is True
     assert basis == "after-tax"
