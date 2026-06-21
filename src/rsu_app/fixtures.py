@@ -1,27 +1,20 @@
 """Frozen price fixture for deterministic, network-free backtests.
 
 The README assets, the notebook smoke test, and the offline test suite run against a
-checked-in snapshot of AAPL/INTC/VTI prices instead of live yfinance, so results are
-reproducible and CI never touches the network. ``patch_yf`` swaps the snapshot in behind
-``rsu_rebalancing.data``; ``refresh`` re-fetches it from yfinance.
+checked-in snapshot of prices instead of live yfinance, so results are reproducible and CI
+never touches the network.
+
+The snapshot holds whatever tickers and date window ``refresh`` was last told to fetch.
+When called from ``assets/generate_assets.py``, these are derived from the notebook
+defaults. ``patch_yf`` swaps it in behind ``rsu_rebalancing.data`` and validates every
+request against the snapshot's own coverage.
 """
 
 import contextlib
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import pandas as pd
-
-# Employers exercised by the README scenarios (AAPL/INTC) plus the default index (VTI),
-# over a window generous enough for the notebook defaults' grant award-lookback (~2011).
-FIXTURE_TICKERS = ("AAPL", "INTC", "VTI")
-FIXTURE_START = "2010-01-01"
-FIXTURE_END = "2025-01-01"
-
-# Half-open coverage bound: yfinance's end is exclusive and data.py bumps the caller's
-# inclusive end by a day, so the fixture can serve requests up to FIXTURE_END + 1 day.
-_COVERED_START = pd.Timestamp(FIXTURE_START)
-_COVERED_END = pd.Timestamp(FIXTURE_END) + pd.Timedelta(days=1)
 
 _PARQUET = Path(__file__).resolve().parent / "_data" / "prices.parquet"
 
@@ -50,13 +43,17 @@ class _FixtureTicker:
             raise ValueError(
                 f"{self._ticker!r} is not in the price fixture "
                 f"({', '.join(map(str, self._frame.columns))}); "
-                "add it to FIXTURE_TICKERS and run rsu_app.fixtures.refresh()."
+                "add it to the tickers passed to rsu_app.fixtures.refresh() and re-fetch."
             )
-        if start < _COVERED_START or end > _COVERED_END:
+        # Half-open coverage bound: yfinance's end is exclusive and data.py bumps the
+        # caller's inclusive end by a day, so the snapshot serves up to its last date + 1.
+        covered_start = self._frame.index.min()
+        covered_end = self._frame.index.max() + pd.Timedelta(days=1)
+        if start < covered_start or end > covered_end:
             raise ValueError(
                 f"requested {start.date()}..{end.date()} falls outside the price fixture's "
-                f"coverage ({FIXTURE_START}..{FIXTURE_END}); widen FIXTURE_START/FIXTURE_END "
-                "and run rsu_app.fixtures.refresh()."
+                f"coverage ({covered_start.date()}..{self._frame.index.max().date()}); widen "
+                "the window passed to rsu_app.fixtures.refresh() and re-fetch."
             )
 
         close = self._frame[self._ticker]
@@ -98,10 +95,18 @@ def patch_yf() -> Iterator[None]:
         data._get_prices_cached.cache_clear()
 
 
-def refresh() -> None:
-    """Re-fetch the snapshot from live yfinance and overwrite the checked-in parquet."""
+def refresh(tickers: Sequence[str], start: str | pd.Timestamp, end: str | pd.Timestamp) -> None:
+    """Re-fetch the snapshot from live yfinance and overwrite the checked-in parquet.
+
+    The fetched window is padded a week beyond ``start``/``end`` on each side. The coverage
+    check compares raw request dates against the snapshot's first/last *trading* day, so the
+    pad guarantees the snapshot brackets requests whose exact boundary lands on a weekend or
+    holiday (e.g. a March-1 grant date). The backtest slices to its own window, so the pad
+    adds no rows it actually reads.
+    """
     from rsu_rebalancing import get_price_frame
 
-    frame = get_price_frame(list(FIXTURE_TICKERS), FIXTURE_START, FIXTURE_END)
+    pad = pd.Timedelta(days=7)
+    frame = get_price_frame(list(tickers), pd.Timestamp(start) - pad, pd.Timestamp(end) + pad)
     _PARQUET.parent.mkdir(parents=True, exist_ok=True)
     frame.to_parquet(_PARQUET)

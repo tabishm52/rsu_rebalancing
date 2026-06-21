@@ -115,12 +115,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    elements, _ = build_backtest_controls()
+
     if args.refresh:
-        refresh()
+        # The fixture only needs to cover what the scenarios exercise: every scenario employer
+        # plus the index, from the first (backfilled) award date through the backtest end.
+        strategy_cfg, grant_cfg, backtest_cfg, _ = build_configs(elements)
+        tickers = list(dict.fromkeys([*(s.employer for s in SCENARIOS), strategy_cfg.index_ticker]))
+        refresh(tickers, grant_cfg.earliest_grant_date(backtest_cfg.start), backtest_cfg.end)
 
     # Render against the checked-in fixture so the README is deterministic and offline.
     with patch_yf():
-        elements, _ = build_backtest_controls()
         for scenario in SCENARIOS:
             basis = render(scenario, elements)
             print(f"Rendered {scenario.employer}: growth-{scenario.slug}.png + table ({basis}).")
