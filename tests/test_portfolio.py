@@ -349,8 +349,11 @@ def test_liquidation_value_is_market_value_less_tax():
     pf.add_grant(DATE, shares=1_000, employer_price=10.0, tax_config=NO_WITHHOLDING)
     pf.buy_index(DATE, dollars=5_000, index_price=5.0)
 
-    cfg = TaxConfig()
+    cfg = TaxConfig(short_term_rate=0.20)
     net = pf.liquidation_value(employer_price=20.0, index_price=10.0, date=DATE, tax_config=cfg)
 
-    expected = pf.market_value(20.0, 10.0) - pf.liquidation_tax(20.0, 10.0, DATE, cfg)
-    assert net == approx(expected)
+    # Market value: 1000 emp @ $20 + 1000 idx @ $10 = $30,000.
+    # Same-day sale, so both gains are short-term @ 20%:
+    #   emp: 1000 * ($20 - $10) = $10,000 gain; idx: 1000 * ($10 - $5) = $5,000 gain.
+    #   tax = 0.20 * $15,000 = $3,000. Net = $30,000 - $3,000 = $27,000.
+    assert net == approx(27_000)
