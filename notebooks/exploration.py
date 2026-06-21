@@ -33,6 +33,7 @@ def imports():
 
     from rsu_app import outperformance_spans
     from rsu_rebalancing import (
+        BacktestConfig,
         annualized_return,
         annualized_volatility,
         get_price_frame,
@@ -42,6 +43,7 @@ def imports():
 
     sns.set_theme()
     return (
+        BacktestConfig,
         annualized_return,
         annualized_volatility,
         get_price_frame,
@@ -67,7 +69,7 @@ def _(mo):
 def controls(mo):
     ticker_a = mo.ui.text(value="AAPL", label="First ticker")
     ticker_b = mo.ui.text(value="VTI", label="Second ticker")
-    start = mo.ui.text(value="2015-01-01", label="Start date")
+    start = mo.ui.text(value="2019-01-01", label="Start date")
     end = mo.ui.text(value="2024-12-31", label="End date")
 
     controls = mo.vstack(
@@ -164,6 +166,7 @@ def _(mo):
 
 @app.cell
 def headline_stats(
+    BacktestConfig,
     annualized_return,
     annualized_volatility,
     daily_returns,
@@ -172,19 +175,21 @@ def headline_stats(
     pd,
     sharpe_ratio,
 ):
+    # Match the backtest's default risk-free rate so the Sharpe lines up with rsu_backtest.py.
+    rf = BacktestConfig.risk_free_rate
     headline = pd.DataFrame(
         {
-            "Ann. return": daily_returns.apply(annualized_return),
-            "Ann. volatility": daily_returns.apply(annualized_volatility),
-            "Sharpe": daily_returns.apply(sharpe_ratio),
+            "Annualized return": daily_returns.apply(annualized_return),
+            "Annualized volatility": daily_returns.apply(annualized_volatility),
+            "Sharpe ratio": daily_returns.apply(sharpe_ratio, risk_free_rate=rf),
             "Max drawdown": daily_returns.apply(max_drawdown),
         }
     ).T
 
     formatters = {
-        "Ann. return": "{:.2%}".format,
-        "Ann. volatility": "{:.2%}".format,
-        "Sharpe": "{:.2f}".format,
+        "Annualized return": "{:.2%}".format,
+        "Annualized volatility": "{:.2%}".format,
+        "Sharpe ratio": "{:.2f}".format,
         "Max drawdown": "{:.2%}".format,
     }
     styled = pd.DataFrame({row: headline.loc[row].map(fmt) for row, fmt in formatters.items()}).T
@@ -202,10 +207,12 @@ def _(mo):
 
 
 @app.cell
-def tearsheet(daily_returns, pd, qs):
+def tearsheet(BacktestConfig, daily_returns, pd, qs):
     tearsheet = pd.DataFrame(
         {
-            col: qs.reports.metrics(daily_returns[col], mode="basic", display=False)["Strategy"]
+            col: qs.reports.metrics(
+                daily_returns[col], rf=BacktestConfig.risk_free_rate, mode="basic", display=False
+            )["Strategy"]
             for col in daily_returns.columns
         }
     )
