@@ -119,7 +119,7 @@ def concentration_plot(
     mo.vstack(
         [
             mo.md("### Employer concentration (threshold strategy)"),
-            mo.mpl.interactive(conc_fig),
+            conc_fig,
         ]
     )
     return
@@ -138,7 +138,7 @@ def performance_plot(
     mo.vstack(
         [
             mo.md(f"### Investment performance ({basis}, external flows removed)"),
-            mo.mpl.interactive(perf_fig),
+            perf_fig,
         ]
     )
     return
