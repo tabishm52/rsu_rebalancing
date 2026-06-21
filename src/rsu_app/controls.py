@@ -29,7 +29,7 @@ def build_backtest_controls() -> tuple[mo.ui.dictionary, mo.Html]:
         {
             "employer": mo.ui.text(value="AAPL", label="Employer ticker"),
             "index": mo.ui.text(value=StrategyConfig.index_ticker, label="Index ticker"),
-            "start": mo.ui.text(value="2015-01-01", label="Start date"),
+            "start": mo.ui.text(value="2019-01-01", label="Start date"),
             "end": mo.ui.text(value="2024-12-31", label="End date"),
             "annual_dollars": mo.ui.number(
                 value=100_000, start=0, stop=1_000_000, step=25_000, label="First-year grant $"

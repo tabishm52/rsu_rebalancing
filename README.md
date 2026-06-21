@@ -62,7 +62,7 @@ The output of the backtest compares three strategies:
 
 ## Example outputs
 
-Both runs below use the notebook defaults — VTI as the diversified index, 2015–2024 date range, the
+Both runs below use the notebook defaults — VTI as the diversified index, 2019–2024 date range, the
 same nominal grant values and tax rates — and differ only in the employer stock. In the figures,
 each line is the time-weighted return under one strategy, and the shaded bands mark stretches where
 the index out-returned the employer.
@@ -83,15 +83,15 @@ fair head-to-head number because every strategy receives the identical grant str
 
 | Metric | Hold everything | Threshold 33% | Sell all at vest |
 | --- | ---: | ---: | ---: |
-| Final portfolio value | $5,013,119 | $3,028,989 | $2,361,184 |
-| Liquidation value (net of tax) | $3,935,447 | $2,515,807 | $2,031,562 |
-| Vested contributions (net of tax) | $1,196,107 | $1,196,107 | $1,196,107 |
-| Taxes paid | $939,798 | $971,100 | $939,798 |
-| Annualized return (TWR) | 24.17% | 16.68% | 12.14% |
-| Annualized volatility | 28.21% | 19.96% | 17.90% |
-| Max drawdown | -38.52% | -33.58% | -35.00% |
-| Sharpe ratio | 0.84 | 0.77 | 0.62 |
-| End employer % | 100.0% | 37.7% | 0.0% |
+| Final portfolio value | $1,705,043 | $1,282,337 | $1,114,918 |
+| Liquidation value (net of tax) | $1,417,665 | $1,113,975 | $997,484 |
+| Vested contributions (net of tax) | $705,891 | $705,891 | $705,891 |
+| Taxes paid | $554,628 | $561,791 | $554,628 |
+| Annualized return (TWR) | 34.76% | 21.71% | 14.13% |
+| Annualized volatility | 30.25% | 22.40% | 20.24% |
+| Max drawdown | -31.43% | -33.46% | -35.00% |
+| Sharpe ratio | 1.07 | 0.90 | 0.66 |
+| End employer % | 100.0% | 36.7% | 0.0% |
 
 <!-- END summary:aapl -->
 
@@ -109,15 +109,15 @@ came out ahead of full diversification on both raw and risk-adjusted return.
 
 | Metric | Hold everything | Threshold 33% | Sell all at vest |
 | --- | ---: | ---: | ---: |
-| Final portfolio value | $422,481 | $1,139,916 | $1,685,399 |
-| Liquidation value (net of tax) | $422,481 | $980,578 | $1,429,610 |
-| Vested contributions (net of tax) | $780,528 | $780,528 | $780,528 |
-| Taxes paid | $613,272 | $616,946 | $613,272 |
-| Annualized return (TWR) | -2.69% | 7.84% | 12.14% |
-| Annualized volatility | 35.53% | 20.99% | 17.90% |
-| Max drawdown | -69.57% | -33.96% | -35.00% |
-| Sharpe ratio | 0.05 | 0.37 | 0.62 |
-| End employer % | 100.0% | 18.8% | 0.0% |
+| Final portfolio value | $173,390 | $466,358 | $652,068 |
+| Liquidation value (net of tax) | $173,390 | $418,165 | $576,499 |
+| Vested contributions (net of tax) | $389,578 | $389,578 | $389,578 |
+| Taxes paid | $306,097 | $306,159 | $306,097 |
+| Annualized return (TWR) | -13.00% | 6.63% | 14.13% |
+| Annualized volatility | 40.84% | 23.84% | 20.24% |
+| Max drawdown | -69.57% | -35.03% | -35.00% |
+| Sharpe ratio | -0.18 | 0.31 | 0.66 |
+| End employer % | 100.0% | 16.1% | 0.0% |
 
 <!-- END summary:intc -->
 
@@ -163,7 +163,7 @@ from rsu_rebalancing import (
 
 strategy = StrategyConfig(employer_ticker="AAPL", index_ticker="VTI", threshold=0.33)
 grants = GrantConfig(grant_dollars=100_000)
-backtest = BacktestConfig(start="2015-01-01", end="2024-12-31")
+backtest = BacktestConfig(start="2019-01-01", end="2024-12-31")
 
 results = run_backtest(strategy, grants, backtest)
 print(
