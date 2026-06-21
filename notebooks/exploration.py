@@ -114,9 +114,9 @@ def _(mo):
 
 
 @app.cell
-def growth_plot(outperformance_spans, plt, prices):
+def growth_plot(mo, outperformance_spans, plt, prices):
     # Growth chart, rebased to 100 at the start date.
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, ax = plt.subplots(figsize=(10.5, 5))
     normalized = prices / prices.iloc[0]
     (normalized * 100).plot(ax=ax)
 
@@ -136,7 +136,7 @@ def growth_plot(outperformance_spans, plt, prices):
     ax.legend(handles, labels, loc="upper left")
 
     fig.tight_layout()
-    fig
+    mo.mpl.interactive(fig)
     return
 
 
