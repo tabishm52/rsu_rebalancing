@@ -170,7 +170,6 @@ print(
     comparison_table(
         results,
         risk_free_rate=backtest.risk_free_rate,
-        after_tax=backtest.after_tax_performance,
     )
 )
 ```
@@ -196,8 +195,6 @@ the dataclass docstrings in [src/rsu_rebalancing/config.py](src/rsu_rebalancing/
   modeling wage inflation; compounds off the window's first year.
 - **Rebalance threshold %** (`StrategyConfig.threshold`): Target maximum employer fraction;
   rebalances trim employer stock down to it.
-- **Analyze performance after tax** (`BacktestConfig.after_tax_performance`): Toggles return/risk
-  calculations between raw market value and net-of-tax liquidation value.
 
 ### Extra settings
 

@@ -110,9 +110,6 @@ def build_backtest_controls() -> tuple[mo.ui.dictionary, mo.Html]:
                 label="Risk-free % (for Sharpe)",
                 show_value=True,
             ),
-            "after_tax_perf": mo.ui.switch(
-                value=BacktestConfig.after_tax_performance, label="Analyze performance after tax"
-            ),
         }
     )
 
@@ -124,7 +121,6 @@ def build_backtest_controls() -> tuple[mo.ui.dictionary, mo.Html]:
             mo.hstack([elements["start"], elements["end"]], justify="start"),
             mo.hstack([elements["annual_dollars"], elements["grant_growth"]], justify="start"),
             elements["threshold"],
-            elements["after_tax_perf"],
         ]
     )
     advanced = mo.vstack(
@@ -143,12 +139,8 @@ def build_backtest_controls() -> tuple[mo.ui.dictionary, mo.Html]:
 
 def build_configs(
     elements: mo.ui.dictionary,
-) -> tuple[StrategyConfig, GrantConfig, BacktestConfig, str]:
-    """Assemble the three library configs (plus the pre/after-tax basis label) from the controls.
-
-    ``basis`` is derived here so the after-tax toggle is read in one place; the figure and
-    table cells both title themselves with it rather than each re-deriving the string.
-    """
+) -> tuple[StrategyConfig, GrantConfig, BacktestConfig]:
+    """Assemble the three library configs from the controls."""
     inputs: dict[str, Any] = elements.value
     start_ts = pd.Timestamp(inputs["start"])
     end_ts = pd.Timestamp(inputs["end"])
@@ -179,7 +171,5 @@ def build_configs(
         start=start_ts,
         end=end_ts,
         risk_free_rate=inputs["risk_free"] / 100.0,
-        after_tax_performance=inputs["after_tax_perf"],
     )
-    basis = "after-tax" if backtest_cfg.after_tax_performance else "pre-tax"
-    return strategy_cfg, grant_cfg, backtest_cfg, basis
+    return strategy_cfg, grant_cfg, backtest_cfg

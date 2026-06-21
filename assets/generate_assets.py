@@ -87,22 +87,20 @@ def inject_summary(slug: str, table_md: str) -> None:
     README.write_text(new_readme)
 
 
-def render(scenario: Scenario, elements) -> str:
-    """Run one scenario, write its chart, inject its table, and return the basis label."""
-    strategy_cfg, grant_cfg, backtest_cfg, basis = build_configs(elements)
+def render(scenario: Scenario, elements) -> None:
+    """Run one scenario, write its chart, and inject its table into the README."""
+    strategy_cfg, grant_cfg, backtest_cfg = build_configs(elements)
     strategy_cfg = dataclasses.replace(strategy_cfg, employer_ticker=scenario.employer)
     results = run_backtest(strategy_cfg, grant_cfg, backtest_cfg)
 
-    fig = build_performance_figure(results, strategy_cfg, backtest_cfg, basis)
+    fig = build_performance_figure(results, strategy_cfg, backtest_cfg)
     fig.savefig(ASSETS / f"growth-{scenario.slug}.png", dpi=150, bbox_inches="tight")
 
     table = comparison_table(
         results,
         risk_free_rate=backtest_cfg.risk_free_rate,
-        after_tax=backtest_cfg.after_tax_performance,
     )
     inject_summary(scenario.slug, to_markdown(format_returns_table(table)))
-    return basis
 
 
 def main() -> None:
@@ -120,15 +118,15 @@ def main() -> None:
     if args.refresh:
         # The fixture only needs to cover what the scenarios exercise: every scenario employer
         # plus the index, from the first (backfilled) award date through the backtest end.
-        strategy_cfg, grant_cfg, backtest_cfg, _ = build_configs(elements)
+        strategy_cfg, grant_cfg, backtest_cfg = build_configs(elements)
         tickers = list(dict.fromkeys([*(s.employer for s in SCENARIOS), strategy_cfg.index_ticker]))
         refresh(tickers, grant_cfg.earliest_grant_date(backtest_cfg.start), backtest_cfg.end)
 
     # Render against the checked-in fixture so the README is deterministic and offline.
     with patch_yf():
         for scenario in SCENARIOS:
-            basis = render(scenario, elements)
-            print(f"Rendered {scenario.employer}: growth-{scenario.slug}.png + table ({basis}).")
+            render(scenario, elements)
+            print(f"Rendered {scenario.employer}: growth-{scenario.slug}.png + table.")
 
 
 if __name__ == "__main__":

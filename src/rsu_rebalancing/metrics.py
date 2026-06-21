@@ -111,24 +111,24 @@ def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
     return _as_scalar(qs.stats.sharpe(returns, rf=risk_free_rate, periods=TRADING_DAYS_PER_YEAR))
 
 
-def summarize(result: BacktestResult, risk_free_rate: float, after_tax: bool) -> pd.Series:
+def summarize(result: BacktestResult, risk_free_rate: float) -> pd.Series:
     """Build a one-row summary of return and risk metrics for a strategy.
+
+    Return and risk are measured on the raw market-value basis; the after-tax outcome is
+    captured separately by the end-of-run liquidation value and taxes-paid rows below.
 
     Args:
         result: A completed strategy run.
         risk_free_rate: Annual risk-free rate for the Sharpe ratio.
-        after_tax: Measure return and risk on the net-of-tax basis when True, else on the
-            raw market-value basis.
 
     Returns:
         A Series of labelled metrics, suitable as one column of a comparison table.
     """
-    perf = result.net_of_tax if after_tax else result.market
-    returns = time_weighted_returns(perf)
+    returns = time_weighted_returns(result.market)
     return pd.Series(
         {
             "Final portfolio value": float(result.market.values.iloc[-1]),
-            "Liquidation value (net of tax)": float(result.net_of_tax.values.iloc[-1]),
+            "Liquidation value (net of tax)": result.liquidation_value,
             "Vested contributions (net of tax)": float(result.vested_contributions.sum()),
             "Taxes paid": float(result.taxes_paid.sum()),
             "Annualized return (TWR)": annualized_return(returns),
@@ -141,13 +141,8 @@ def summarize(result: BacktestResult, risk_free_rate: float, after_tax: bool) ->
     )
 
 
-def comparison_table(
-    results: dict[str, BacktestResult], risk_free_rate: float, after_tax: bool
-) -> pd.DataFrame:
+def comparison_table(results: dict[str, BacktestResult], risk_free_rate: float) -> pd.DataFrame:
     """Stack per-strategy summaries into one comparison table (strategies as columns)."""
     return pd.DataFrame(
-        {
-            name: summarize(result, risk_free_rate, after_tax=after_tax)
-            for name, result in results.items()
-        }
+        {name: summarize(result, risk_free_rate) for name, result in results.items()}
     )

@@ -178,32 +178,25 @@ class BacktestConfig:
         end: Last date of the backtest (inclusive).
         risk_free_rate: Annual risk-free rate used by the Sharpe ratio. Defaults to
             roughly the average 3-month Treasury yield over 2015-2024.
-        after_tax_performance: When True, return and risk metrics are measured on
-            net-of-tax liquidation value; when False, on raw market value.
     """
 
     start: pd.Timestamp
     end: pd.Timestamp
     risk_free_rate: float = 0.02
-    after_tax_performance: bool = False
 
     def __init__(
         self,
         start: pd.Timestamp | str,
         end: pd.Timestamp | str,
         risk_free_rate: float | None = None,
-        after_tax_performance: bool | None = None,
     ) -> None:
         """Normalize loose dates to tz-naive Timestamps and validate order.
 
-        ``risk_free_rate`` and ``after_tax_performance`` left as ``None`` fall back to the
-        class-level field defaults.
+        ``risk_free_rate`` left as ``None`` falls back to the class-level field default.
         """
         object.__setattr__(self, "start", pd.Timestamp(start).normalize())
         object.__setattr__(self, "end", pd.Timestamp(end).normalize())
         if risk_free_rate is not None:
             object.__setattr__(self, "risk_free_rate", risk_free_rate)
-        if after_tax_performance is not None:
-            object.__setattr__(self, "after_tax_performance", after_tax_performance)
         if self.start >= self.end:
             raise ValueError(f"start ({self.start.date()}) must be before end ({self.end.date()})")

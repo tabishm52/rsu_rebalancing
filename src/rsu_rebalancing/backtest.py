@@ -26,11 +26,11 @@ class PerfSeries:
     """A performance basis: a daily value series paired with the flows to strip from it.
 
     Time-weighted returns are ``(values - flows) / values.shift(1) - 1``, so the two must
-    travel together. A *flow* is a non-market change in value -- money in or out, or (on
-    the net basis) a tax-status change -- that is not investment performance.
+    travel together. A *flow* is a non-market change in value -- money in or out -- that is
+    not investment performance.
 
     Attributes:
-        values: Daily portfolio value on this basis (market or net-of-tax).
+        values: Daily portfolio value on the market basis.
         flows: Daily non-market change in ``values``, signed (inflow positive).
     """
 
@@ -48,21 +48,20 @@ class BacktestResult:
         market: Raw market-value basis. ``market.values`` may begin with zero-value days
             before the first grant lands; ``metrics.time_weighted_returns`` neutralizes
             these, so they carry no spurious return.
-        net_of_tax: Net-of-tax (liquidation-value) basis. Puts strategies that realized gains
-            along the way on an even footing with those carrying large unrealized gains,
-            and strips the short-to-long-term tax-status drift as a flow.
         employer_fraction: Daily employer-stock share of total holdings.
         trades: Audit log of every grant and sale, one row each.
         final_portfolio: The portfolio state at the end of the run.
+        liquidation_value: End-of-run net-of-tax value -- the gross final portfolio less the
+            tax owed on liquidating it.
     """
 
     name: str
     description: str
     market: PerfSeries = field(default_factory=PerfSeries)
-    net_of_tax: PerfSeries = field(default_factory=PerfSeries)
     employer_fraction: pd.Series = field(default_factory=_empty_series)
     trades: pd.DataFrame = field(default_factory=pd.DataFrame)
     final_portfolio: Portfolio = field(default_factory=Portfolio)
+    liquidation_value: float = 0.0
 
     @property
     def vested_contributions(self) -> pd.Series:
@@ -124,21 +123,15 @@ def run_rule(
     records = []
     market_values: dict[pd.Timestamp, float] = {}
     market_flows: dict[pd.Timestamp, float] = {}
-    net_values: dict[pd.Timestamp, float] = {}
-    net_flows: dict[pd.Timestamp, float] = {}
     fractions: dict[pd.Timestamp, float] = {}
-    prev_date: pd.Timestamp | None = None
 
     for date in prices.index:
         emp_price = float(employer.loc[date])
         idx_price = float(index.loc[date])
         grant_shares = vesting.get(date)
 
-        # Compute portfolio value at today's prices before the step; the net-of-tax value
-        # uses yesterday's date so a change from short- to long-term tax status is seen as a flow
-        ref_date = prev_date if prev_date is not None else date
+        # Compute portfolio value at today's prices before the step
         market_before = portfolio.market_value(emp_price, idx_price)
-        net_before = portfolio.liquidation_value(emp_price, idx_price, ref_date, tax_config)
 
         # Step the strategy one day forward: apply any grants or rebalance, mutating the portfolio
         day = TradingDay(
@@ -152,15 +145,17 @@ def run_rule(
 
         # Compute portfolio value after the step at today's prices
         market_after = portfolio.market_value(emp_price, idx_price)
-        net_after = portfolio.liquidation_value(emp_price, idx_price, date, tax_config)
 
-        # Non-market flows = value after the step - value before the step
+        # Non-market flow = value after the step - value before the step
         market_values[date] = market_after
         market_flows[date] = market_after - market_before
-        net_values[date] = net_after
-        net_flows[date] = net_after - net_before
         fractions[date] = portfolio.employer_fraction(emp_price, idx_price)
-        prev_date = date
+
+    # The after-tax outcome only matters at the end, so mark the final portfolio once.
+    last_date = prices.index[-1]
+    liquidation_value = portfolio.liquidation_value(
+        float(employer.loc[last_date]), float(index.loc[last_date]), last_date, tax_config
+    )
 
     trades = pd.DataFrame([asdict(r) for r in records])
     return BacktestResult(
@@ -170,13 +165,10 @@ def run_rule(
             values=pd.Series(market_values, name=rule.name),
             flows=pd.Series(market_flows, name=rule.name),
         ),
-        net_of_tax=PerfSeries(
-            values=pd.Series(net_values, name=rule.name),
-            flows=pd.Series(net_flows, name=rule.name),
-        ),
         employer_fraction=pd.Series(fractions, name=rule.name),
         trades=trades,
         final_portfolio=portfolio,
+        liquidation_value=liquidation_value,
     )
 
 

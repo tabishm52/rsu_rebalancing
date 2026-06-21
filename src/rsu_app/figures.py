@@ -86,18 +86,14 @@ def build_performance_figure(
     results: dict[str, BacktestResult],
     strategy_cfg: StrategyConfig,
     backtest_cfg: BacktestConfig,
-    basis: str,
 ) -> Figure:
     """Growth-of-100 curves per strategy, shading where the index out-returned employer.
 
     Each curve is labelled by ``BacktestResult.description`` (e.g. "Threshold: 33% AAPL /
     67% VTI"), so the legend stands alone; the generic result names stay as-is for the
-    table and lookups. ``basis`` titles the y-axis (see ``build_configs``).
+    table and lookups.
     """
-    after_tax = backtest_cfg.after_tax_performance
-    perf = {
-        res.description: (res.net_of_tax if after_tax else res.market) for res in results.values()
-    }
+    perf = {res.description: res.market for res in results.values()}
     curves = {label: growth_of_one(time_weighted_returns(p)) for label, p in perf.items()}
     growth_df = pd.DataFrame(curves)
 
@@ -120,7 +116,7 @@ def build_performance_figure(
         # axvspan accepts datetime-like x at runtime; the stub only admits float.
         band = ax.axvspan(start, end, color="#d62728", alpha=0.12, zorder=0)  # pyright: ignore[reportArgumentType]
     ax.set_xlabel("Date")
-    ax.set_ylabel(f"Index, start = 100 ({basis}, time-weighted)")
+    ax.set_ylabel("Index, start = 100 (time-weighted)")
     handles, labels = ax.get_legend_handles_labels()
     if band is not None:
         handles.append(band)

@@ -81,7 +81,7 @@ def _(mo):
 @app.cell
 def backtest(build_configs, elements, mo, run_backtest):
     try:
-        strategy_cfg, grant_cfg, backtest_cfg, basis = build_configs(elements)
+        strategy_cfg, grant_cfg, backtest_cfg = build_configs(elements)
         results = run_backtest(strategy_cfg, grant_cfg, backtest_cfg)
         error = None
     except Exception as exc:  # noqa: BLE001 - surface any data/config error in the UI
@@ -96,7 +96,7 @@ def backtest(build_configs, elements, mo, run_backtest):
         if name.startswith("Threshold")
     )
     results
-    return backtest_cfg, basis, results, strategy_cfg, threshold_name
+    return backtest_cfg, results, strategy_cfg, threshold_name
 
 
 @app.cell
@@ -128,16 +128,15 @@ def concentration_plot(
 @app.cell
 def performance_plot(
     backtest_cfg,
-    basis,
     build_performance_figure,
     mo,
     results,
     strategy_cfg,
 ):
-    perf_fig = build_performance_figure(results, strategy_cfg, backtest_cfg, basis)
+    perf_fig = build_performance_figure(results, strategy_cfg, backtest_cfg)
     mo.vstack(
         [
-            mo.md(f"### Investment performance ({basis}, external flows removed)"),
+            mo.md("### Investment performance (external flows removed)"),
             perf_fig,
         ]
     )
@@ -147,7 +146,6 @@ def performance_plot(
 @app.cell
 def comparison(
     backtest_cfg,
-    basis,
     comparison_table,
     format_returns_table,
     mo,
@@ -156,13 +154,10 @@ def comparison(
     returns_table = comparison_table(
         results,
         risk_free_rate=backtest_cfg.risk_free_rate,
-        after_tax=backtest_cfg.after_tax_performance,
     )
     styled = format_returns_table(returns_table)
 
-    mo.vstack(
-        [mo.md(f"### Return & risk comparison ({basis})"), mo.ui.table(styled, selection=None)]
-    )
+    mo.vstack([mo.md("### Return & risk comparison"), mo.ui.table(styled, selection=None)])
     return
 
 

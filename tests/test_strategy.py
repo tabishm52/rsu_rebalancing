@@ -168,7 +168,7 @@ def test_final_net_value_haircuts_unrealized_gains():
     # the net-of-tax liquidation value sits below the gross portfolio value.
     result = run_rule(PRICES, "EMP", "IDX", GRANTS, [REBALANCE_DAY], HoldEverything())
 
-    assert result.net_of_tax.values.iloc[-1] < result.market.values.iloc[-1]
+    assert result.liquidation_value < result.market.values.iloc[-1]
 
 
 def test_final_net_value_equals_gross_with_no_gain():
@@ -177,7 +177,7 @@ def test_final_net_value_equals_gross_with_no_gain():
 
     result = run_rule(flat, "EMP", "IDX", GRANTS, [REBALANCE_DAY], HoldEverything())
 
-    assert result.net_of_tax.values.iloc[-1] == approx(result.market.values.iloc[-1])
+    assert result.liquidation_value == approx(result.market.values.iloc[-1])
 
 
 # Grant at $10, the price rises to $15 and holds across the rebalance, then ticks to $18.
@@ -215,37 +215,3 @@ def test_grant_is_a_flow_and_price_move_is_a_return():
     assert result.market.flows.loc[_FLOW_DATES[1]] == approx(20_000.0)
     # $2,000 employer gain (666.67 sh x $3) over a prior value of $28,666.67 -> 3/43.
     assert returns.loc[_FLOW_DATES[5]] == approx(3 / 43)
-
-
-def test_net_basis_rebalance_is_neutral():
-    # Realizing gains just prepays tax: at constant prices the net-of-tax value is
-    # unchanged, so a rebalance contributes ~0 to the net flow (no spurious return). The
-    # realized-tax rate and the liquidation mark are the one config the engine threads
-    # through, so they match by construction.
-    tax = TaxConfig(short_term_rate=0.2)
-    rule = ThresholdRebalance(threshold=1 / 3, band=0.0)
-
-    result = run_rule(_FLOW_PRICES, "EMP", "IDX", _FLOW_GRANTS, [_FLOW_REBALANCE], rule, tax)
-
-    assert result.net_of_tax.flows.loc[_FLOW_REBALANCE] == approx(0.0, abs=1e-9)
-
-
-def test_net_basis_strips_short_to_long_term_drift():
-    # One lot, flat price above its cost, observed either side of the 1-year mark. The tax
-    # rate drops short->long with no price move, so the net-of-tax value jumps -- but that
-    # jump is a tax-status flow, not performance, so the day's return is ~0.
-    dates = pd.DatetimeIndex(["2020-01-01", "2020-12-31", "2021-01-01"])
-    prices = pd.DataFrame({"EMP": [10.0, 15.0, 15.0], "IDX": [100.0] * 3}, index=dates)
-    grants = {dates[0]: 1000.0}  # 1000 sh, vesting at $10, $5/sh gain at $15
-    # Ordinary-income rate 0 so all 1000 shares vest, isolating the cap-gains tax drift.
-    tax = TaxConfig(
-        short_term_rate=0.4, long_term_rate=0.2, long_term_days=365, ordinary_income_rate=0.0
-    )
-
-    result = run_rule(prices, "EMP", "IDX", grants, [], HoldEverything(), tax)
-    returns = time_weighted_returns(result.net_of_tax)
-
-    assert result.net_of_tax.values.loc[dates[1]] == approx(13_000.0)  # short-term: 15k - 0.4*5k
-    assert result.net_of_tax.values.loc[dates[2]] == approx(14_000.0)  # long-term: 15k - 0.2*5k
-    assert result.net_of_tax.flows.loc[dates[2]] == approx(1_000.0)  # the drift, stripped as a flow
-    assert returns.loc[dates[2]] == approx(0.0, abs=1e-9)

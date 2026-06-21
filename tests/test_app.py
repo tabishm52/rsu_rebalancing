@@ -16,13 +16,12 @@ from rsu_app import (
 def test_build_configs_maps_default_controls():
     elements, _ = build_backtest_controls()
 
-    strategy_cfg, grant_cfg, backtest_cfg, basis = build_configs(elements)
+    strategy_cfg, grant_cfg, backtest_cfg = build_configs(elements)
 
     assert strategy_cfg.employer_ticker == "AAPL"
     assert strategy_cfg.threshold == 0.33  # 33% slider -> fraction
     first_grant = grant_cfg.nominal_grant_dates(backtest_cfg.start, backtest_cfg.end)[0]
     assert first_grant.year == 2015  # 2019 window, backfilled by 4 vesting years
-    assert basis == "pre-tax"
 
 
 def _with_overrides(**overrides: Any) -> mo.ui.dictionary:
@@ -34,19 +33,10 @@ def _with_overrides(**overrides: Any) -> mo.ui.dictionary:
 def test_build_configs_backfill_off_anchors_grants_at_window_start():
     elements = _with_overrides(backfill=mo.ui.switch(value=False))
 
-    _, grant_cfg, backtest_cfg, _ = build_configs(elements)
+    _, grant_cfg, backtest_cfg = build_configs(elements)
 
     first_grant = grant_cfg.nominal_grant_dates(backtest_cfg.start, backtest_cfg.end)[0]
     assert first_grant.year == 2019
-
-
-def test_build_configs_after_tax_toggle_sets_basis():
-    elements = _with_overrides(after_tax_perf=mo.ui.switch(value=True))
-
-    _, _, backtest_cfg, basis = build_configs(elements)
-
-    assert backtest_cfg.after_tax_performance is True
-    assert basis == "after-tax"
 
 
 def _prices_index_ahead_on(ahead_days: set[int], periods: int) -> tuple[pd.Series, pd.Series]:
