@@ -109,9 +109,9 @@ came out ahead of full diversification on both raw and risk-adjusted return.
 
 | Metric | Hold everything | Threshold 33% | Sell all at vest |
 | --- | ---: | ---: | ---: |
-| Final portfolio value | $422,481 | $1,139,915 | $1,685,398 |
+| Final portfolio value | $422,481 | $1,139,916 | $1,685,399 |
 | Liquidation value (net of tax) | $422,481 | $980,578 | $1,429,610 |
-| Vested contributions (net of tax) | $780,527 | $780,527 | $780,527 |
+| Vested contributions (net of tax) | $780,528 | $780,528 | $780,528 |
 | Taxes paid | $613,272 | $616,946 | $613,272 |
 | Annualized return (TWR) | -2.69% | 7.84% | 12.14% |
 | Annualized volatility | 35.53% | 20.99% | 17.90% |
