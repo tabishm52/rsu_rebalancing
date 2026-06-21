@@ -73,9 +73,8 @@ uv run marimo edit notebooks/rsu_backtest.py
 
 - **uv is the toolchain.** ruff (lint + format), pyright, pytest, and a README-freshness
   check (regenerate from the price fixture, diff `README.md`) all gate CI.
-- **pyright is pragmatic, not strict.** It covers the library, asset script, and tests
-  (not notebooks); when types fight you, prefer a targeted `# pyright: ignore[...]` over
-  contorting code.
+- **pyright is pragmatic, not strict.** When types fight you, prefer a targeted
+  `# pyright: ignore[...]` over contorting code.
 - **Returns are time-weighted.** Grants are deposits, not performance. Any new metric
   must strip contributions (see `metrics.time_weighted_returns`) or it will be wrong.
 - **README example blocks are generated.** The charts and `<!-- BEGIN summary:* -->`

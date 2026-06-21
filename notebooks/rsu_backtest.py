@@ -89,7 +89,12 @@ def backtest(build_configs, elements, mo, run_backtest):
         error = str(exc)
 
     mo.stop(error is not None, mo.md(f"⚠️ **Could not run:** {error}"))
-    threshold_name = next(name for name in results if name.startswith("Threshold"))
+    # mo.stop halts the cell when results is None; pyright can't see that guard.
+    threshold_name = next(
+        name
+        for name in results  # pyright: ignore[reportOptionalIterable]
+        if name.startswith("Threshold")
+    )
     results
     return backtest_cfg, basis, results, strategy_cfg, threshold_name
 

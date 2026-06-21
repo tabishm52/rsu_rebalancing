@@ -55,11 +55,14 @@ ignore = [
 convention = "google"
 
 [tool.pyright]
-# Notebooks excluded: untypable marimo/matplotlib UI glue
 pythonVersion = "3.14"
-include = ["src/rsu_rebalancing", "src/rsu_app", "assets", "tests"]
 typeCheckingMode = "basic"
 reportUnnecessaryTypeIgnoreComment = true
+
+# Silence the marimo "bare expression renders the cell" idiom across notebooks
+[[tool.pyright.executionEnvironments]]
+root = "notebooks"
+reportUnusedExpression = "none"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
