@@ -8,11 +8,11 @@ to diversify a concentrated single-stock position. People approach this in diffe
 end of the spectrum, you have the financial advisor types who push maximum diversification and on
 the other, the HODL'ers who are in a mild panic every time the company stock has a bad spell.
 
-Most folks fall somewhere in between, and I've heard a variety of approaches. Typically, the
-approach is pretty ad-hoc, selling chunks of stock here and there and otherwise using employer stock
-as a piggy-bank for larger cash needs. I wanted an approach that was more principled, and I
-eventually settled on a pretty simple rebalancing method. I've often wondered how well that approach
-performed, and this project attempts to answer that question.
+I've heard a variety of approaches to diversification from others, but often it's pretty ad-hoc,
+selling chunks of stock here and there and otherwise using employer stock as a piggy-bank for larger
+cash needs. I wanted an approach that was more principled, and I eventually settled on a pretty
+simple rebalancing method. I've sometimes wondered how well that approach performed in terms of
+total and risk-adjusted returns, and this project attempts to answer that question.
 
 > **Not investment advice.** This is a historical simulation for curiosity and learning. Past
 > performance does not predict future results, and the model omits real-world details such as wash
@@ -20,25 +20,26 @@ performed, and this project attempts to answer that question.
 
 ## Diversification strategy
 
-Each year, I would receive an annual refresher grant of RSUs denominated in dollars (~proportional
-to my salary). Its dollar value was converted into a share count at the grant date, and then those
-shares would vest over the following four years. Because the share count is locked at grant, the
-*dollars* delivered at each vest float with the share price. If the stock has appreciated, the grant
-over-delivers, which is wonderful but concentrates you even further in employer stock.
+Each year, I would receive an annual refresher grant of RSUs denominated in dollars, roughly
+proportional to my salary. The grant's dollar value would convert into a share count at the grant
+date, and then those shares would vest over the following four years. Because the share count is
+locked at grant, the *dollars* delivered at each vest float with the share price. If the stock has
+appreciated, the grant over-delivers, which is wonderful but concentrates you even further in
+employer stock.
 
 My diversification approach was a **one-way threshold rebalancing** strategy. Once or twice per
-quarter — typically shortly after the trading window opened and again just before the next blackout
-period — I would calculate what fraction of my *total* stock holdings were in employer stock. If
-that exceeded a threshold (e.g., 33%), then I would sell my excess employer stock down to that
-threshold and buy a diversified index with the proceeds. It was a *one-way* rebalance only; since I
-expected future vesting, I would only ever sell employer stock, never buy it.
+quarter — shortly after the trading window opened, and once more (if I remembered) just before the
+next blackout period — I would calculate what fraction of my *total* stock holdings were in employer
+stock. If that exceeded a threshold (e.g., 33%), then I would sell my excess employer stock down to
+that threshold and buy a diversified index with the proceeds. It was a *one-way* rebalance only;
+since I expected future vesting, I would only ever sell employer stock, never buy it.
 
-It's a simple strategy, but I found it had some nice benefits. First and perhaps most importantly,
-my selling decisions were entirely mechanical. I did a quick calculation, and then I sold a specific
+It's a simple strategy, but I found it had some nice benefits. First and most importantly, my
+selling decisions were entirely mechanical. I did a quick calculation, and then I sold a specific
 amount of stock, which took much of the emotion and FOMO out of it. Second, like any rebalancing
 approach, the strategy naturally enforces buy low, sell high discipline. You sell **more** stock
 when your employer outperforms the market and you sell **less** (or hold) when it lags. In practice,
-annual vesting would almost always trigger a sale, and in between, the rebalancing rule would only
+annual vesting would almost always trigger a sale, and in between, the rebalancing rule would
 trigger a sale if my employer's stock had significant appreciation relative to the broader market.
 
 ## Project overview
@@ -47,8 +48,8 @@ This project backtests the one-way threshold rebalancing strategy. It is built a
 package for the backtest engine plus an interactive [marimo](https://marimo.io) notebook front-end.
 
 The backtest engine runs a strategy through the desired time window to calculate risk and return
-characteristics of the strategy. The engine implements a simplified model of the impact of vesting
-schedules and taxes upon vesting and sale events. It idealizes many other details, e.g. it assumes
+characteristics of the strategy. The engine implements a simplified model of vesting schedules as
+well as taxes upon vesting and sale events. It idealizes many other details; for example, it assumes
 instantaneous conversion from employer stock to index with fractional stock and zero transaction
 costs.
 
@@ -65,11 +66,11 @@ The output of the backtest compares three strategies:
 Both runs below use the notebook defaults — VTI as the diversified index, 2019–2024 date range, the
 same nominal grant values and tax rates — and differ only in the employer stock. In the figures,
 each line is the time-weighted return under one strategy, and the shaded bands mark stretches where
-the index out-returned the employer.
+the index outperformed the employer.
 
 ### How returns are measured
 
-Because grants add money over time and tax payments behave as a withdrawal, raw portfolio value is
+Because grants add money over time and tax payments behave as withdrawals, raw portfolio value is
 **not** a clean return series — a jump on a grant day is a deposit, not market performance. Risk and
 return here use a **time-weighted return** that strips out each day's non-market inflows and
 outflows (`metrics.time_weighted_returns`). Final dollar value is still reported directly and is a
@@ -95,11 +96,11 @@ fair head-to-head number because every strategy receives the identical grant str
 
 <!-- END summary:aapl -->
 
-Over this window AAPL beat the market, so holding everything won outright on final dollars, but it
-rode the most volatility and the deepest drawdown to get there. Even for a high-flying stock like
-AAPL, there were periods of time that the stock underperformed the index. The 33% threshold strategy
-gave up much of the single-stock upside in exchange for diversification and downside protection and
-came out ahead of full diversification on both raw and risk-adjusted return.
+Over this window AAPL handily beat the market, so holding everything won outright on final dollars,
+but it rode the most volatility and the deepest drawdown to get there. Even for a high-flying stock
+like AAPL, there were periods when the stock underperformed the index. The 33% threshold
+strategy gave up much of the single-stock upside in exchange for diversification and downside
+protection and came out ahead of full diversification on both raw and risk-adjusted return.
 
 ### When the employer lags the market (INTC)
 
@@ -122,9 +123,8 @@ came out ahead of full diversification on both raw and risk-adjusted return.
 <!-- END summary:intc -->
 
 Intel is the mirror image: over the same window it lagged the market badly, so concentration was
-punished instead of rewarded. Full diversification wins here, and the threshold strategy again lands
-in between, keeping most assets protected by diversification while holding a slice of employer
-exposure.
+punished instead of rewarded. Full diversification wins here, and the threshold strategy keeps most
+assets protected by diversification while holding a slice of employer exposure.
 
 The charts and tables above are regenerated from the notebook defaults by
 [assets/generate_assets.py](assets/generate_assets.py).
@@ -181,7 +181,7 @@ shown above.
 
 These are the knobs the notebook exposes, in the same two groups it uses: the everyday ones up top,
 the fussy details under "Extra settings". Each maps to a field on one of the config dataclasses for
-the Python API. For additional details and a few settings that are not exposed to the notebook, see
+the Python API. For additional details and a few fields that are not exposed to the notebook, see
 the dataclass docstrings in [src/rsu_rebalancing/config.py](src/rsu_rebalancing/config.py).
 
 ### Main knobs
@@ -189,8 +189,8 @@ the dataclass docstrings in [src/rsu_rebalancing/config.py](src/rsu_rebalancing/
 - **Employer / index ticker** (`StrategyConfig.employer_ticker`, `index_ticker`): The concentrated
   stock and the diversified fund its proceeds buy.
 - **Start / end date** (`BacktestConfig.start`, `end`): The backtest window.
-- **First-year grant $** (`GrantConfig.grant_dollars`): The **gross** award value in the window's
-  first year, priced into a share count at the award date.
+- **First-year grant $** (`GrantConfig.grant_dollars`): The gross (pre-tax) award value in the
+  window's first year, priced into a share count at the award date.
 - **Grant growth %/yr** (`GrantConfig.grant_growth_rate`): Annual nominal growth of the award value,
   modeling wage inflation; compounds off the window's first year.
 - **Rebalance threshold %** (`StrategyConfig.threshold`): Target maximum employer fraction;
@@ -205,8 +205,8 @@ the dataclass docstrings in [src/rsu_rebalancing/config.py](src/rsu_rebalancing/
   rebalance dates to place in each quarter.
 - **Hysteresis band %** (`StrategyConfig.rebalance_band`): A one-way band; a rebalance fires only
   when the employer fraction exceeds `threshold + band`.
-- **Vest withholding %** (`TaxConfig.ordinary_income_rate`): Tax rate for each vesting event via
-  sell-to-cover, grossing the kept share count down.
+- **Vest withholding %** (`TaxConfig.ordinary_income_rate`): Ordinary income tax rate for each
+  vesting event via sell-to-cover, grossing the kept share count down.
 - **Short- / long-term cap-gains tax %** (`TaxConfig.short_term_rate`, `long_term_rate`): Tax rates
   for gains on employer-stock sales by holding period.
 - **Risk-free % (for Sharpe)** (`BacktestConfig.risk_free_rate`): Used only for calculation of the
