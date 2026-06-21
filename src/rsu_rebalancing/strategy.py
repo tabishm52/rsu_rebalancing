@@ -80,7 +80,7 @@ class ThresholdRebalance:
         self.name = f"Threshold {threshold:.0%}"
 
     def describe(self, employer_ticker: str, index_ticker: str) -> str:
-        """Description string for the target split."""
+        """Legend label for the target split."""
         return (
             f"Threshold: {self.threshold:.0%} {employer_ticker} / "
             f"{1 - self.threshold:.0%} {index_ticker}"
@@ -123,7 +123,7 @@ class HoldEverything:
     name = "Hold everything"
 
     def describe(self, employer_ticker: str, index_ticker: str) -> str:
-        """Description string for the all-employer baseline."""
+        """Legend label for the all-employer baseline."""
         return f"Hold everything: 100% {employer_ticker}"
 
     def step(
@@ -144,7 +144,7 @@ class SellAllAtVest:
     name = "Sell all at vest"
 
     def describe(self, employer_ticker: str, index_ticker: str) -> str:
-        """Description string for the fully-diversified baseline."""
+        """Legend label for the fully-diversified baseline."""
         return f"Sell all at vest: 100% {index_ticker}"
 
     def step(

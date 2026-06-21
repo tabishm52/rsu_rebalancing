@@ -134,10 +134,8 @@ def run_rule(
         idx_price = float(index.loc[date])
         grant_shares = vesting_schedule.get(date)
 
-        # Compute portfolio value at today's prices before the step
         market_before = portfolio.market_value(emp_price, idx_price)
 
-        # Step the strategy one day forward: apply any grants or rebalance, mutating the portfolio
         day = TradingDay(
             date=date,
             employer_price=emp_price,
@@ -147,7 +145,6 @@ def run_rule(
         )
         records.extend(rule.step(portfolio, day, tax_config))
 
-        # Compute portfolio value after the step at today's prices
         market_after = portfolio.market_value(emp_price, idx_price)
 
         # Non-market flow = value after the step - value before the step

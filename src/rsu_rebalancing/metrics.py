@@ -43,53 +43,29 @@ def time_weighted_returns(perf: PerfSeries) -> pd.Series:
 
 
 def growth_of_one(returns: pd.Series) -> pd.Series:
-    """Cumulative growth of $1 invested, given a daily return series.
+    """Cumulative growth of $1: the curve ``(1 + returns).cumprod()``.
 
-    Args:
-        returns: A daily return series.
-
-    Returns:
-        The curve ``(1 + returns).cumprod()``. Note it starts at ``1 + returns[0]``,
-        with no leading 1.0 baseline.
+    Starts at ``1 + returns[0]``, with no leading 1.0 baseline.
     """
     return (1.0 + returns).cumprod()
 
 
 def annualized_return(returns: pd.Series) -> float:
-    """Geometric annualized (CAGR-equivalent) time-weighted return.
-
-    Args:
-        returns: Daily time-weighted returns.
-
-    Returns:
-        The CAGR, annualized at 252 trading days per year, or NaN if ``returns`` is empty.
-    """
+    """Geometric annualized (CAGR-equivalent) return, at 252 days/year; NaN if empty."""
     if returns.empty:
         return float("nan")
     return _as_scalar(qs.stats.cagr(returns, periods=TRADING_DAYS_PER_YEAR))
 
 
 def annualized_volatility(returns: pd.Series) -> float:
-    """Annualized standard deviation of daily returns.
-
-    Args:
-        returns: Daily time-weighted returns.
-
-    Returns:
-        The sample standard deviation (``ddof=1``) scaled by ``sqrt(252)``.
-    """
+    """Sample standard deviation (``ddof=1``) of daily returns, scaled by ``sqrt(252)``."""
     return _as_scalar(qs.stats.volatility(returns, periods=TRADING_DAYS_PER_YEAR, annualize=True))
 
 
 def max_drawdown(returns: pd.Series) -> float:
-    """Largest peak-to-trough decline, measured from initial capital (a negative number).
+    """Largest peak-to-trough decline from initial capital (negative); NaN if empty.
 
-    Args:
-        returns: Daily time-weighted returns. Must carry a ``DatetimeIndex``, as the
-            series from :func:`time_weighted_returns` does.
-
-    Returns:
-        The maximum drawdown as a negative fraction, or NaN if ``returns`` is empty.
+    ``returns`` must carry a ``DatetimeIndex``, as :func:`time_weighted_returns` produces.
     """
     if returns.empty:
         return float("nan")
@@ -97,15 +73,7 @@ def max_drawdown(returns: pd.Series) -> float:
 
 
 def sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0) -> float:
-    """Annualized Sharpe ratio of the return series.
-
-    Args:
-        returns: Daily time-weighted returns.
-        risk_free_rate: Annual risk-free rate to subtract from the return.
-
-    Returns:
-        The Sharpe ratio, or NaN if volatility is zero.
-    """
+    """Annualized Sharpe ratio, net of ``risk_free_rate``; NaN if volatility is zero."""
     if annualized_volatility(returns) == 0.0:
         return float("nan")  # qs.stats.sharpe yields inf here; we report NaN instead
     return _as_scalar(qs.stats.sharpe(returns, rf=risk_free_rate, periods=TRADING_DAYS_PER_YEAR))

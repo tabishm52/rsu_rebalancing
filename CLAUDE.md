@@ -75,6 +75,11 @@ uv run marimo edit notebooks/rsu_backtest.py
   check (regenerate from the price fixture, diff `README.md`) all gate CI.
 - **pyright is pragmatic, not strict.** When types fight you, prefer a targeted
   `# pyright: ignore[...]` over contorting code.
+- **Docstrings scale with complexity.** Use a full `Args:`/`Returns:`/`Raises:` block
+  only when a parameter or the return needs explanation beyond what the name and summary
+  line convey; otherwise a single summary line (carry any real caveat inline). Don't pad
+  trivial signatures with boilerplate sections, and don't write comments that restate the
+  next line — comment the *why*, not the *what*.
 - **Returns are time-weighted.** Grants are deposits, not performance. Any new metric
   must strip contributions (see `metrics.time_weighted_returns`) or it will be wrong.
 - **README example blocks are generated.** The charts and `<!-- BEGIN summary:* -->`

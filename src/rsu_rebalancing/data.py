@@ -13,24 +13,11 @@ import yfinance as yf
 
 @lru_cache(maxsize=64)
 def _get_prices_cached(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.Series:
-    """Fetch split/dividend-adjusted close prices for a single ticker, memoized.
+    """Fetch adjusted close prices for one ticker, memoized; see :func:`get_prices`.
 
-    Arguments are pre-normalized by :func:`get_prices` so they serve as stable
-    cache keys. Dates use yfinance's half-open semantics (``start`` inclusive,
-    ``end`` exclusive) -- :func:`get_prices` pre-bumps ``end`` so its own
-    contract stays inclusive.
-
-    Args:
-        ticker: Symbol to fetch, already upper-cased.
-        start: First date to include (inclusive).
-        end: Fetch boundary (exclusive).
-
-    Returns:
-        A float Series of adjusted close prices indexed by trading date
-        (tz-naive, normalized to midnight), named after the ticker.
-
-    Raises:
-        ValueError: If yfinance returns no rows for the ticker and range.
+    Arguments are pre-normalized by :func:`get_prices` so they serve as stable cache
+    keys. Dates use yfinance's half-open semantics (``start`` inclusive, ``end``
+    exclusive) -- :func:`get_prices` pre-bumps ``end`` so its own contract stays inclusive.
     """
     frame = yf.Ticker(ticker).history(start=start, end=end, auto_adjust=True)
     if frame.empty:
