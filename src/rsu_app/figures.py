@@ -30,7 +30,7 @@ def build_concentration_figure(result: BacktestResult, threshold: float) -> Figu
     sale_dates = trades.loc[trades["kind"].isin(["rebalance", "liquidate"]), "date"]
     pre_sale_frac = frac.shift(1).loc[sale_dates]
 
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, ax = plt.subplots(figsize=(10.5, 5))
     ax.plot(frac.index.to_numpy(), frac.to_numpy(), color="#d62728")
     ax.axhline(threshold, linestyle="--", color="gray")
     ax.scatter(
@@ -109,7 +109,7 @@ def build_performance_figure(
         prices[strategy_cfg.index_ticker.upper()],
     )
 
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, ax = plt.subplots(figsize=(10.5, 5))
     (growth_df * 100).plot(ax=ax)
     band = None
     for start, end in spans:
