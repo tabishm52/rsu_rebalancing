@@ -18,12 +18,12 @@ def _(mo):
     mo.md("""
     # RSU threshold rebalancing — backtest
 
-    Each year you receive a **grant** of **employer stock**: its dollar value is converted
+    Each year you receive a grant of employer stock: its dollar value is converted
     to a fixed share count at the grant-date price, which then vests in equal annual
-    tranches over the following few years (so the *dollars* delivered at each vest float
-    with the stock). Twice a quarter the strategy trims employer stock back down to a
-    **threshold** fraction of total holdings, reinvesting the proceeds in a diversified
-    **index**. Compare it against *holding everything* and *selling everything at vest*.
+    tranches over the following few years. The threshold rebalancing strategy regularly
+    trims employer stock back down to a specified fraction of total holdings, reinvesting
+    the proceeds in a diversified index. Compare the threshold rebalancing strategy against
+    *holding everything* and *selling everything at vest*.
     """)
     return
 
@@ -71,15 +71,8 @@ def controls(build_backtest_controls):
 
 
 @app.cell
-def _(mo):
-    mo.md("""
-    ## Run the backtest
-    """)
-    return
-
-
-@app.cell
 def backtest(build_configs, elements, mo, run_backtest):
+    # Run the backtest
     try:
         strategy_cfg, grant_cfg, backtest_cfg = build_configs(elements)
         results = run_backtest(strategy_cfg, grant_cfg, backtest_cfg)
@@ -95,7 +88,6 @@ def backtest(build_configs, elements, mo, run_backtest):
         for name in results  # pyright: ignore[reportOptionalIterable]
         if name.startswith("Threshold")
     )
-    results
     return backtest_cfg, results, strategy_cfg, threshold_name
 
 
@@ -119,7 +111,7 @@ def concentration_plot(
     mo.vstack(
         [
             mo.md("### Employer concentration (threshold strategy)"),
-            conc_fig,
+            mo.mpl.interactive(conc_fig),
         ]
     )
     return
@@ -137,7 +129,7 @@ def performance_plot(
     mo.vstack(
         [
             mo.md("### Investment performance (external flows removed)"),
-            perf_fig,
+            mo.mpl.interactive(perf_fig),
         ]
     )
     return
